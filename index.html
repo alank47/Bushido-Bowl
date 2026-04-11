@@ -862,6 +862,294 @@
                 width: 100%;
                 min-width: unset;
             }
+
+            .trade-card {
+                padding: 20px 15px;
+            }
+
+            .trade-teams {
+                flex-direction: column;
+            }
+
+            .trade-arrow {
+                transform: rotate(90deg);
+                margin: 10px 0;
+            }
+
+            .trades-controls {
+                flex-direction: column;
+            }
+
+            .trade-action-btn {
+                width: 100%;
+            }
+        }
+
+        /* Trade Tracker Styles */
+        .trades-container {
+            width: 100%;
+        }
+
+        .trades-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .trade-action-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-gold));
+            border: none;
+            border-radius: 8px;
+            color: var(--bg-dark);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .trade-action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(255, 107, 53, 0.6);
+        }
+
+        .trade-action-btn.secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+            box-shadow: none;
+        }
+
+        .trade-action-btn.secondary:hover {
+            border-color: var(--accent-orange);
+            background: var(--bg-card);
+        }
+
+        .btn-icon {
+            font-size: 1.3rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            font-size: 1rem;
+        }
+
+        .trade-card {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .trade-card:hover {
+            border-color: var(--accent-orange);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.2);
+        }
+
+        .trade-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .trade-date {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .trade-status {
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .trade-status.analyzing {
+            background: rgba(255, 215, 0, 0.2);
+            color: var(--accent-gold);
+            border: 1px solid var(--accent-gold);
+        }
+
+        .trade-status.analyzed {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+
+        .trade-teams {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin-bottom: 25px;
+        }
+
+        .trade-side {
+            flex: 1;
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .trade-side.winner {
+            border-color: var(--accent-green);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .trade-team-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-gold);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .winner-badge {
+            background: var(--accent-green);
+            color: var(--bg-dark);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+        }
+
+        .trade-assets {
+            list-style: none;
+        }
+
+        .trade-asset {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .trade-asset:last-child {
+            border-bottom: none;
+        }
+
+        .asset-name {
+            font-size: 1rem;
+            color: var(--text-primary);
+        }
+
+        .asset-values {
+            display: flex;
+            gap: 15px;
+            font-size: 0.9rem;
+        }
+
+        .value-then {
+            color: var(--text-secondary);
+        }
+
+        .value-now {
+            color: var(--accent-green);
+            font-weight: 700;
+        }
+
+        .value-change {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .value-change.positive {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--accent-green);
+        }
+
+        .value-change.negative {
+            background: rgba(255, 107, 53, 0.2);
+            color: var(--accent-orange);
+        }
+
+        .trade-arrow {
+            font-size: 2rem;
+            color: var(--accent-gold);
+            flex-shrink: 0;
+        }
+
+        .trade-analysis {
+            background: var(--bg-card);
+            border-left: 4px solid var(--accent-gold);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .analysis-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent-gold);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .analysis-text {
+            line-height: 1.8;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+        }
+
+        .analyze-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-card);
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .analyze-btn:hover {
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+            background: rgba(255, 215, 0, 0.05);
         }
 
         /* Tab Navigation */
@@ -1075,6 +1363,7 @@
             <div class="tab-navigation">
                 <button class="tab-btn active" onclick="switchTab('overview')">Dynasty Overview</button>
                 <button class="tab-btn" onclick="switchTab('historical')">Historical Stats</button>
+                <button class="tab-btn" onclick="switchTab('trades')">Trade Tracker</button>
                 <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
             </div>
 
@@ -1086,7 +1375,7 @@
                 <div class="stat-card">
                     <div class="stat-label">Prize Pot Value</div>
                     <div class="stat-value">$<span id="potValue">0</span></div>
-                    <div class="stat-subtitle"><span id="aprDisplay">3.85</span>% APY • Year <span id="currentYear">1</span> of <span id="dynastyLength">5</span></div>
+                    <div class="stat-subtitle"><span id="aprDisplay">3.25</span>% APY • Year <span id="currentYear">1</span> of <span id="dynastyLength">5</span></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Your Dynasty Points</div>
@@ -1115,6 +1404,32 @@
             <!-- Historical Stats Tab -->
             <div id="historicalTab" class="tab-content">
                 <!-- Content loaded dynamically -->
+            </div>
+
+            <!-- Trade Tracker Tab -->
+            <div id="tradesTab" class="tab-content">
+                <div class="trades-container">
+                    <div class="stat-section">
+                        <h2 class="section-title">📊 Trade Tracker & Analysis</h2>
+                        
+                        <div class="trades-controls">
+                            <button class="trade-action-btn" onclick="loadSleeperTrades()">
+                                <span class="btn-icon">🔄</span> Load Sleeper Trades
+                            </button>
+                            <button class="trade-action-btn secondary" onclick="showManualTradeForm()">
+                                <span class="btn-icon">➕</span> Add Manual Trade
+                            </button>
+                        </div>
+                        
+                        <div id="tradesContent">
+                            <div class="empty-state">
+                                <div class="empty-icon">📈</div>
+                                <h3>No Trades Loaded</h3>
+                                <p>Click "Load Sleeper Trades" to import your league's transaction history</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Settings Tab -->
@@ -1171,7 +1486,7 @@
                                 
                                 <div class="setting-item">
                                     <label for="settingAPR">APR / Interest Rate</label>
-                                    <input type="number" id="settingAPR" step="0.01" min="0" max="100" value="3.85">
+                                    <input type="number" id="settingAPR" step="0.01" min="0" max="100" value="3.25">
                                     <span class="setting-unit">%</span>
                                 </div>
                                 
@@ -1204,7 +1519,7 @@
             championshipAppearance: 5,
             titleWin: 8,
             annualDeposit: 300,
-            apr: 3.85,
+            apr: 3.25,
             dynastyLength: 5
         };
 
@@ -2169,6 +2484,7 @@
             buttons.forEach(btn => {
                 if ((tabName === 'overview' && btn.textContent.includes('Overview')) ||
                     (tabName === 'historical' && btn.textContent.includes('Historical')) ||
+                    (tabName === 'trades' && btn.textContent.includes('Trade')) ||
                     (tabName === 'settings' && btn.textContent.includes('Settings'))) {
                     btn.classList.add('active');
                 }
@@ -2191,6 +2507,8 @@
                 } else {
                     console.log('Historical stats already loaded');
                 }
+            } else if (tabName === 'trades') {
+                document.getElementById('tradesTab').classList.add('active');
             } else if (tabName === 'settings') {
                 document.getElementById('settingsTab').classList.add('active');
                 loadSettingsForm();
@@ -2261,6 +2579,329 @@
                 localStorage.removeItem('dynastySettings');
                 location.reload();
             }
+        }
+
+        // ==================== TRADE TRACKER FUNCTIONS ====================
+
+        // Fetch Sleeper transactions
+        async function fetchSleeperTransactions(leagueId) {
+            try {
+                const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/transactions/1`);
+                if (!response.ok) throw new Error('Failed to fetch transactions');
+                return response.json();
+            } catch (error) {
+                console.error('Error fetching transactions:', error);
+                return [];
+            }
+        }
+
+        // Fetch FantasyCalc player values
+        async function fetchFantasyCalcValues() {
+            try {
+                const response = await fetch('https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=12&ppr=1');
+                if (!response.ok) throw new Error('Failed to fetch FantasyCalc values');
+                return response.json();
+            } catch (error) {
+                console.error('Error fetching FantasyCalc values:', error);
+                return [];
+            }
+        }
+
+        // Get player name from Sleeper player ID
+        async function getSleeperPlayerInfo(playerId) {
+            try {
+                // Sleeper player data is massive, so we'll use their API
+                const response = await fetch('https://api.sleeper.app/v1/players/nfl');
+                if (!response.ok) return null;
+                const allPlayers = await response.json();
+                return allPlayers[playerId];
+            } catch (error) {
+                console.error('Error fetching player info:', error);
+                return null;
+            }
+        }
+
+        // Load trades from Sleeper
+        async function loadSleeperTrades() {
+            const tradesContent = document.getElementById('tradesContent');
+            tradesContent.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading trades from Sleeper...</p>
+                </div>
+            `;
+
+            try {
+                const leagueId = sessionStorage.getItem('leagueId');
+                const rosters = JSON.parse(sessionStorage.getItem('rosters'));
+                const users = JSON.parse(sessionStorage.getItem('users'));
+                
+                // Create user map
+                const userMap = {};
+                users.forEach(u => {
+                    userMap[u.user_id] = u.display_name || u.username;
+                });
+                
+                // Create roster to user map
+                const rosterToUser = {};
+                rosters.forEach(r => {
+                    rosterToUser[r.roster_id] = userMap[r.owner_id];
+                });
+                
+                // Fetch all seasons to get all trades
+                const seasons = await fetchAllSeasons(leagueId);
+                const allTrades = [];
+                
+                for (const seasonData of seasons) {
+                    const transactions = await fetchSleeperTransactions(seasonData.leagueId);
+                    
+                    // Filter for trades only
+                    const trades = transactions.filter(t => t.type === 'trade' && t.status === 'complete');
+                    
+                    trades.forEach(trade => {
+                        allTrades.push({
+                            ...trade,
+                            season: seasonData.season,
+                            rosterToUser: rosterToUser
+                        });
+                    });
+                }
+                
+                if (allTrades.length === 0) {
+                    tradesContent.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <h3>No Trades Found</h3>
+                            <p>No completed trades found in your league history</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Store trades for analysis
+                sessionStorage.setItem('leagueTrades', JSON.stringify(allTrades));
+                
+                // Render trades
+                renderTrades(allTrades);
+                
+            } catch (error) {
+                console.error('Error loading trades:', error);
+                tradesContent.innerHTML = `
+                    <div class="error">Failed to load trades: ${error.message}</div>
+                `;
+            }
+        }
+
+        function renderTrades(trades) {
+            const tradesContent = document.getElementById('tradesContent');
+            
+            if (trades.length === 0) {
+                tradesContent.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <h3>No Trades Found</h3>
+                        <p>No completed trades found in your league history</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort by date (most recent first)
+            trades.sort((a, b) => b.created - a.created);
+            
+            let html = `<div class="trades-list">`;
+            
+            trades.forEach((trade, index) => {
+                const date = new Date(trade.created).toLocaleDateString();
+                const rosterIds = Object.keys(trade.roster_ids || {});
+                
+                if (rosterIds.length !== 2) return; // Skip if not a 2-team trade
+                
+                const roster1 = rosterIds[0];
+                const roster2 = rosterIds[1];
+                const team1 = trade.rosterToUser[roster1] || 'Unknown';
+                const team2 = trade.rosterToUser[roster2] || 'Unknown';
+                
+                const team1Adds = trade.adds ? Object.keys(trade.adds).filter(p => trade.adds[p] === parseInt(roster1)) : [];
+                const team2Adds = trade.adds ? Object.keys(trade.adds).filter(p => trade.adds[p] === parseInt(roster2)) : [];
+                
+                html += `
+                    <div class="trade-card" data-trade-id="${index}">
+                        <div class="trade-header">
+                            <div class="trade-date">📅 ${date} • Season ${trade.season}</div>
+                            <div class="trade-status analyzing">Pending Analysis</div>
+                        </div>
+                        
+                        <div class="trade-teams">
+                            <div class="trade-side">
+                                <div class="trade-team-name">${team1}</div>
+                                <ul class="trade-assets">
+                                    ${team1Adds.map(playerId => `
+                                        <li class="trade-asset">
+                                            <span class="asset-name" data-player-id="${playerId}">Player ${playerId}</span>
+                                            <div class="asset-values">
+                                                <span class="value-then">Loading...</span>
+                                            </div>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                            
+                            <div class="trade-arrow">⇄</div>
+                            
+                            <div class="trade-side">
+                                <div class="trade-team-name">${team2}</div>
+                                <ul class="trade-assets">
+                                    ${team2Adds.map(playerId => `
+                                        <li class="trade-asset">
+                                            <span class="asset-name" data-player-id="${playerId}">Player ${playerId}</span>
+                                            <div class="asset-values">
+                                                <span class="value-then">Loading...</span>
+                                            </div>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <button class="analyze-btn" onclick="analyzeTrade(${index})">
+                            🤖 Generate AI Analysis
+                        </button>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            tradesContent.innerHTML = html;
+            
+            // Load player names
+            loadPlayerNames();
+        }
+
+        async function loadPlayerNames() {
+            try {
+                const response = await fetch('https://api.sleeper.app/v1/players/nfl');
+                const allPlayers = await response.json();
+                
+                document.querySelectorAll('[data-player-id]').forEach(el => {
+                    const playerId = el.getAttribute('data-player-id');
+                    const player = allPlayers[playerId];
+                    if (player) {
+                        el.textContent = `${player.first_name} ${player.last_name}`;
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading player names:', error);
+            }
+        }
+
+        async function analyzeTrade(tradeIndex) {
+            const trades = JSON.parse(sessionStorage.getItem('leagueTrades'));
+            const trade = trades[tradeIndex];
+            const card = document.querySelector(`[data-trade-id="${tradeIndex}"]`);
+            const analyzeBtn = card.querySelector('.analyze-btn');
+            
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = '🤖 Analyzing trade...';
+            
+            try {
+                // Get player info
+                const response = await fetch('https://api.sleeper.app/v1/players/nfl');
+                const allPlayers = await response.json();
+                
+                const rosterIds = Object.keys(trade.roster_ids);
+                const roster1 = rosterIds[0];
+                const roster2 = rosterIds[1];
+                const team1 = trade.rosterToUser[roster1];
+                const team2 = trade.rosterToUser[roster2];
+                
+                const team1Adds = trade.adds ? Object.keys(trade.adds).filter(p => trade.adds[p] === parseInt(roster1)) : [];
+                const team2Adds = trade.adds ? Object.keys(trade.adds).filter(p => trade.adds[p] === parseInt(roster2)) : [];
+                
+                const team1Players = team1Adds.map(id => {
+                    const p = allPlayers[id];
+                    return p ? `${p.first_name} ${p.last_name} (${p.position})` : 'Unknown';
+                });
+                
+                const team2Players = team2Adds.map(id => {
+                    const p = allPlayers[id];
+                    return p ? `${p.first_name} ${p.last_name} (${p.position})` : 'Unknown';
+                });
+                
+                const tradeDate = new Date(trade.created).toLocaleDateString();
+                
+                // Call Claude API for analysis
+                const analysis = await generateTradeAnalysis(team1, team1Players, team2, team2Players, tradeDate);
+                
+                // Display analysis
+                analyzeBtn.remove();
+                card.querySelector('.trade-status').textContent = 'Analyzed';
+                card.querySelector('.trade-status').classList.remove('analyzing');
+                card.querySelector('.trade-status').classList.add('analyzed');
+                
+                const analysisHTML = `
+                    <div class="trade-analysis">
+                        <div class="analysis-title">🤖 AI Trade Analysis</div>
+                        <div class="analysis-text">${analysis}</div>
+                    </div>
+                `;
+                
+                card.insertAdjacentHTML('beforeend', analysisHTML);
+                
+            } catch (error) {
+                console.error('Error analyzing trade:', error);
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = '🤖 Generate AI Analysis (Retry)';
+                alert('Failed to analyze trade: ' + error.message);
+            }
+        }
+
+        async function generateTradeAnalysis(team1, team1Players, team2, team2Players, tradeDate) {
+            const prompt = `Analyze this fantasy football dynasty trade:
+
+Trade Date: ${tradeDate}
+
+${team1} received: ${team1Players.join(', ')}
+${team2} received: ${team2Players.join(', ')}
+
+Provide a brief analysis (3-4 sentences) covering:
+1. Who won the trade at the time
+2. How it looks now in hindsight
+3. Key factors that influenced the outcome
+
+Keep it conversational and insightful.`;
+
+            try {
+                const response = await fetch("https://api.anthropic.com/v1/messages", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        model: "claude-sonnet-4-20250514",
+                        max_tokens: 1000,
+                        messages: [
+                            { role: "user", content: prompt }
+                        ],
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.content && data.content[0] && data.content[0].text) {
+                    return data.content[0].text;
+                }
+                
+                throw new Error('Invalid response from AI');
+                
+            } catch (error) {
+                console.error('AI analysis error:', error);
+                throw error;
+            }
+        }
+
+        function showManualTradeForm() {
+            alert('Manual trade entry coming soon! For now, use "Load Sleeper Trades" to import your league\'s transactions.');
         }
 
         // Check for existing session on load
