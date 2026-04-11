@@ -2957,20 +2957,34 @@
                     const name = player.name || '';
                     const value = item.value || 0;
                     
-                    // Check if this is a pick entry (might be like "2025 Early 1st" or "Pick 1.01")
-                    if (name && (name.includes('Pick') || /20\d{2}/.test(name))) {
-                        console.log('Found possible pick in data:', { name, value, fullItem: item });
+                    // FantasyCalc format: "2026 Pick 1.01"
+                    const pickMatch = name.match(/(\d{4})\s+Pick\s+(\d+)\.(\d+)/i);
+                    if (pickMatch) {
+                        const year = pickMatch[1];
+                        const round = pickMatch[2];
+                        const pickNum = pickMatch[3];
                         
-                        // Try to parse year and round
-                        const yearMatch = name.match(/20(\d{2})/);
-                        const roundMatch = name.match(/(\d+)(?:st|nd|rd|th)/i);
+                        console.log(`Found FC pick: ${name} = ${value}`);
                         
-                        if (yearMatch && roundMatch) {
-                            const year = `20${yearMatch[1]}`;
-                            const round = roundMatch[1];
-                            const key = `${year}_${round}`;
-                            pickValueMap[key] = value;
+                        // Store both by exact pick (1.01) and by round average
+                        const exactKey = `${year}_${round}_${pickNum}`;
+                        const roundKey = `${year}_${round}`;
+                        
+                        pickValueMap[exactKey] = value;
+                        
+                        // Also calculate round average (for picks without assigned slots)
+                        if (!pickValueMap[roundKey]) {
+                            pickValueMap[roundKey] = { total: 0, count: 0 };
                         }
+                        pickValueMap[roundKey].total += value;
+                        pickValueMap[roundKey].count++;
+                    }
+                });
+                
+                // Convert round averages to actual values
+                Object.keys(pickValueMap).forEach(key => {
+                    if (typeof pickValueMap[key] === 'object' && pickValueMap[key].count) {
+                        pickValueMap[key] = Math.round(pickValueMap[key].total / pickValueMap[key].count);
                     }
                 });
                 
@@ -3050,16 +3064,32 @@
                 document.querySelectorAll('[data-pick-season]').forEach(assetEl => {
                     const year = assetEl.getAttribute('data-pick-season');
                     const round = assetEl.getAttribute('data-pick-round');
-                    const key = `${year}_${round}`;
+                    const assetName = assetEl.querySelector('.asset-name').textContent;
                     
-                    const pickValue = pickValueMap[key];
+                    // Try to extract exact pick number if format is "2026 1.01"
+                    const exactMatch = assetName.match(/(\d+)\.(\d+)/);
+                    let pickValue = null;
+                    
+                    if (exactMatch) {
+                        // Has exact pick number - try exact match first
+                        const pickNum = exactMatch[2];
+                        const exactKey = `${year}_${round}_${pickNum}`;
+                        pickValue = pickValueMap[exactKey];
+                        console.log(`Looking for exact pick ${exactKey}:`, pickValue);
+                    }
+                    
+                    // Fallback to round average if exact not found
+                    if (!pickValue) {
+                        const roundKey = `${year}_${round}`;
+                        pickValue = pickValueMap[roundKey];
+                        console.log(`Using round average ${roundKey}:`, pickValue);
+                    }
                     
                     const valueContainer = assetEl.querySelector('.asset-values');
                     if (pickValue && pickValue > 0) {
                         pickMatches++;
-                        const label = Object.keys(pickValueMap).length > 50 ? 'Value:' : 'Est. Value:';
                         valueContainer.innerHTML = `
-                            <span class="value-label">${label}</span>
+                            <span class="value-label">Value:</span>
                             <span class="value-now">${pickValue.toFixed(0)}</span>
                         `;
                     } else {
