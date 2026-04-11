@@ -715,7 +715,6 @@
 
     <script>
         // Configuration
-        const LEAGUE_START_YEAR = 2025;
         const POINTS_PER_WIN = 2;
         const ANNUAL_DEPOSIT = 300;
         const APY = 0.0325;
@@ -730,24 +729,38 @@
         };
 
         // Calculate current pot value with compound interest
-        function calculatePotValue() {
-            const currentDate = new Date();
-            const currentYear = currentDate.getFullYear();
-            const yearsElapsed = currentYear - LEAGUE_START_YEAR;
-            
-            // Calculate which year of the 5-year cycle we're in
-            const cycleYear = Math.min(yearsElapsed + 1, 5);
-            
-            // Calculate compound interest for each deposit
-            let totalValue = 0;
-            for (let i = 0; i < cycleYear; i++) {
-                const yearsInvested = cycleYear - i;
-                const depositValue = ANNUAL_DEPOSIT * Math.pow(1 + APY, yearsInvested);
-                totalValue += depositValue;
+        async function calculatePotValue() {
+            try {
+                const leagueId = sessionStorage.getItem('leagueId');
+                const seasons = await fetchAllSeasons(leagueId);
+                
+                if (!seasons || seasons.length === 0) {
+                    return '0.00';
+                }
+                
+                // Get the first season year
+                const leagueStartYear = seasons[0].season;
+                const currentDate = new Date();
+                const currentYear = currentDate.getFullYear();
+                const yearsElapsed = currentYear - leagueStartYear;
+                
+                // Calculate which year of the 5-year cycle we're in
+                const cycleYear = Math.min(yearsElapsed + 1, 5);
+                
+                // Calculate compound interest for each deposit
+                let totalValue = 0;
+                for (let i = 0; i < cycleYear; i++) {
+                    const yearsInvested = cycleYear - i;
+                    const depositValue = ANNUAL_DEPOSIT * Math.pow(1 + APY, yearsInvested);
+                    totalValue += depositValue;
+                }
+                
+                document.getElementById('currentYear').textContent = cycleYear;
+                return totalValue.toFixed(2);
+            } catch (error) {
+                console.error('Error calculating pot value:', error);
+                return '0.00';
             }
-            
-            document.getElementById('currentYear').textContent = cycleYear;
-            return totalValue.toFixed(2);
         }
 
         // Sleeper API calls
@@ -871,15 +884,16 @@
             document.getElementById('leagueSelect').innerHTML = '<option value="">Choose a league...</option>';
         }
 
-        function showDashboard() {
+        async function showDashboard() {
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('dashboard').style.display = 'block';
             
             const user = JSON.parse(sessionStorage.getItem('sleeperUser'));
             document.getElementById('userDisplay').textContent = user.display_name || user.username;
             
-            // Update pot value
-            document.getElementById('potValue').textContent = calculatePotValue();
+            // Update pot value (now async)
+            const potValue = await calculatePotValue();
+            document.getElementById('potValue').textContent = potValue;
             
             loadLeaderboard();
         }
@@ -893,9 +907,10 @@
         async function fetchAllSeasons(currentLeagueId) {
             const seasons = [];
             let leagueId = currentLeagueId;
+            let previousLeagueId = null;
             
-            // Keep going back until we hit 2025 or there's no previous league
-            while (leagueId) {
+            // Keep going back until there's no previous league
+            while (leagueId && leagueId !== previousLeagueId) {
                 const league = await fetchLeague(leagueId);
                 const season = parseInt(league.season);
                 
@@ -905,16 +920,19 @@
                     league: league
                 });
                 
-                // Stop if we've reached 2025 or earlier
-                if (season <= LEAGUE_START_YEAR) {
+                // Store current league ID to prevent infinite loops
+                previousLeagueId = leagueId;
+                
+                // Move to previous season (if it exists)
+                leagueId = league.previous_league_id;
+                
+                // Break if no previous league or we've seen this ID before
+                if (!leagueId || leagueId === previousLeagueId) {
                     break;
                 }
-                
-                // Move to previous season
-                leagueId = league.previous_league_id;
             }
             
-            return seasons.reverse(); // Return chronologically (2025 first)
+            return seasons.reverse(); // Return chronologically (oldest first)
         }
 
         async function fetchPlayoffBracket(leagueId) {
@@ -1150,9 +1168,12 @@
                 document.getElementById('totalTeams').textContent = leaderboard.length;
                 
                 // Render leaderboard table
+                const firstSeason = seasons[0].season;
+                const lastSeason = seasons[seasons.length - 1].season;
+                
                 let tableHTML = `
                     <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-                        <strong style="color: var(--accent-gold);">Dynasty Stats: ${LEAGUE_START_YEAR} - ${new Date().getFullYear()}</strong>
+                        <strong style="color: var(--accent-gold);">Dynasty Stats: ${firstSeason} - ${lastSeason}</strong>
                         <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">
                             ${seasons.length} season${seasons.length > 1 ? 's' : ''} tracked
                         </div>
@@ -1220,7 +1241,14 @@
 
         // Historical Stats Tab
         async function loadHistoricalStats() {
+            console.log('loadHistoricalStats called');
             const historicalTab = document.getElementById('historicalTab');
+            
+            if (!historicalTab) {
+                console.error('Historical tab element not found!');
+                return;
+            }
+            
             historicalTab.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
@@ -1230,14 +1258,20 @@
 
             try {
                 const leagueId = sessionStorage.getItem('leagueId');
+                console.log('League ID:', leagueId);
+                
                 const seasons = await fetchAllSeasons(leagueId);
+                console.log('Seasons loaded:', seasons.length);
+                
                 const currentUser = JSON.parse(sessionStorage.getItem('sleeperUser'));
+                console.log('Current user:', currentUser.display_name);
 
                 // Aggregate all historical data
                 const allSeasonData = [];
                 const userMap = {};
                 
                 for (const seasonData of seasons) {
+                    console.log('Processing season:', seasonData.season);
                     const { leagueId: seasonLeagueId, season, league } = seasonData;
                     const seasonRosters = await fetchLeagueRosters(seasonLeagueId);
                     const seasonUsers = await fetchLeagueUsers(seasonLeagueId);
@@ -1258,11 +1292,15 @@
                     });
                 }
 
+                console.log('Calculating stats...');
                 // Calculate all stats
                 const stats = calculateHistoricalStats(allSeasonData, userMap);
                 
+                console.log('Rendering stats...');
                 // Render stats
                 renderHistoricalStats(stats, currentUser.user_id, userMap, seasons.length);
+                
+                console.log('Historical stats loaded successfully!');
                 
             } catch (error) {
                 console.error('Error loading historical stats:', error);
@@ -1603,9 +1641,19 @@
         }
 
         function switchTab(tabName) {
+            console.log('Switching to tab:', tabName);
+            
             // Update tab buttons
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            
+            // Find and activate the clicked button
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => {
+                if ((tabName === 'overview' && btn.textContent.includes('Overview')) ||
+                    (tabName === 'historical' && btn.textContent.includes('Historical'))) {
+                    btn.classList.add('active');
+                }
+            });
             
             // Update tab content
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
@@ -1613,10 +1661,16 @@
             if (tabName === 'overview') {
                 document.getElementById('overviewTab').classList.add('active');
             } else if (tabName === 'historical') {
-                document.getElementById('historicalTab').classList.add('active');
+                const historicalTab = document.getElementById('historicalTab');
+                historicalTab.classList.add('active');
+                
                 // Load historical stats if not already loaded
-                if (document.getElementById('historicalTab').innerHTML === '') {
+                const currentContent = historicalTab.innerHTML.trim();
+                if (currentContent === '' || currentContent.includes('Content loaded dynamically')) {
+                    console.log('Loading historical stats...');
                     loadHistoricalStats();
+                } else {
+                    console.log('Historical stats already loaded');
                 }
             }
         }
