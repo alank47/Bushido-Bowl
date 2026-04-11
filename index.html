@@ -723,7 +723,29 @@
             return seasons.reverse(); // Return chronologically (2025 first)
         }
 
-        async function fetchAllMatchups(leagueId, totalWeeks) {
+        async function fetchPlayoffBracket(leagueId) {
+            try {
+                const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/winners_bracket`);
+                if (response.ok) {
+                    return response.json();
+                }
+            } catch (err) {
+                console.log('Could not fetch playoff bracket');
+            }
+            return null;
+        }
+
+        async function fetchLosersPlayoffBracket(leagueId) {
+            try {
+                const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/losers_bracket`);
+                if (response.ok) {
+                    return response.json();
+                }
+            } catch (err) {
+                console.log('Could not fetch losers bracket');
+            }
+            return null;
+        }
             const allMatchups = [];
             for (let week = 1; week <= totalWeeks; week++) {
                 try {
@@ -818,9 +840,9 @@
                         const wins = roster.settings.wins || 0;
                         userStats[userId].wins += wins;
                         
-                        // Count highest weekly scores for this team
+                        // Count highest weekly scores for this team (REGULAR SEASON ONLY - weeks 1-14)
                         seasonMatchups.forEach(({ week, matchups }) => {
-                            if (matchups && matchups.length > 0) {
+                            if (week <= 14 && matchups && matchups.length > 0) {
                                 const maxScore = Math.max(...matchups.map(m => m.points || 0));
                                 const rosterMatchup = matchups.find(m => m.roster_id === roster.roster_id);
                                 if (rosterMatchup && rosterMatchup.points === maxScore && maxScore > 0) {
@@ -841,16 +863,46 @@
                             userStats[userId].playoffBerths++;
                         }
                         
-                        // Check championship results
-                        const finalRanking = roster.settings.rank || 0;
-                        if (finalRanking === 1) {
-                            userStats[userId].titles++;
-                            userStats[userId].championshipAppearances++;
-                        } else if (finalRanking === 2) {
-                            userStats[userId].championshipAppearances++;
+                        // Check championship results using playoff bracket
+                        const winnersBracket = await fetchPlayoffBracket(seasonLeagueId);
+                        
+                        if (winnersBracket && winnersBracket.length > 0) {
+                            // Find the championship game (last round)
+                            const championshipRound = Math.max(...winnersBracket.map(m => m.r || 0));
+                            const championshipGame = winnersBracket.find(m => m.r === championshipRound);
+                            
+                            if (championshipGame) {
+                                // Check if this roster won the championship
+                                if (championshipGame.w === roster.roster_id) {
+                                    userStats[userId].titles++;
+                                    userStats[userId].championshipAppearances++;
+                                    console.log(`✓ CHAMPION: User ${userId}, Roster ${roster.roster_id}, Season ${season}`);
+                                }
+                                // Check if this roster was runner-up
+                                else if (championshipGame.roster_id === roster.roster_id || 
+                                         (championshipGame.t1_from && championshipGame.t1_from.w === roster.roster_id) ||
+                                         (championshipGame.t2_from && championshipGame.t2_from.w === roster.roster_id)) {
+                                    userStats[userId].championshipAppearances++;
+                                    console.log(`✓ RUNNER-UP: User ${userId}, Roster ${roster.roster_id}, Season ${season}`);
+                                }
+                            }
+                        } else {
+                            // Fallback to roster.settings.rank if bracket data unavailable
+                            const finalRanking = roster.settings.rank || 0;
+                            if (finalRanking === 1) {
+                                userStats[userId].titles++;
+                                userStats[userId].championshipAppearances++;
+                                console.log(`✓ CHAMPION (fallback): User ${userId}, Roster ${roster.roster_id}, Season ${season}`);
+                            } else if (finalRanking === 2) {
+                                userStats[userId].championshipAppearances++;
+                                console.log(`✓ RUNNER-UP (fallback): User ${userId}, Roster ${roster.roster_id}, Season ${season}`);
+                            }
                         }
                     });
                 }
+                
+                console.log('=== FINAL USER STATS ===');
+                console.log(userStats);
                 
                 // Calculate total points for each user
                 Object.keys(userStats).forEach(userId => {
