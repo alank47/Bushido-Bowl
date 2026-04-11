@@ -2630,6 +2630,32 @@
             }
         }
 
+        // Fetch draft information to get pick order
+        async function fetchDraftInfo(leagueId) {
+            try {
+                const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/drafts`);
+                if (!response.ok) return null;
+                const drafts = await response.json();
+                console.log(`Drafts for league ${leagueId}:`, drafts);
+                return drafts;
+            } catch (error) {
+                console.error('Error fetching drafts:', error);
+                return null;
+            }
+        }
+
+        async function fetchDraftPicks(draftId) {
+            try {
+                const response = await fetch(`https://api.sleeper.app/v1/draft/${draftId}/picks`);
+                if (!response.ok) return null;
+                const picks = await response.json();
+                return picks;
+            } catch (error) {
+                console.error('Error fetching draft picks:', error);
+                return null;
+            }
+        }
+
         // Load trades from Sleeper
         async function loadSleeperTrades() {
             const tradesContent = document.getElementById('tradesContent');
@@ -2668,6 +2694,49 @@
                 const seasons = await fetchAllSeasons(leagueId);
                 const allTrades = [];
                 
+                // Build draft slot mapping for all seasons
+                const draftSlotMap = {}; // Maps "season_round_rosterId" to pick number
+                
+                for (const seasonData of seasons) {
+                    console.log(`Fetching draft info for season ${seasonData.season}, league ${seasonData.leagueId}`);
+                    
+                    // Fetch users and rosters for THIS season
+                    const seasonUsers = await fetchLeagueUsers(seasonData.leagueId);
+                    const seasonRosters = await fetchLeagueRosters(seasonData.leagueId);
+                    
+                    // Fetch drafts for this league
+                    const drafts = await fetchDraftInfo(seasonData.leagueId);
+                    
+                    if (drafts && drafts.length > 0) {
+                        for (const draft of drafts) {
+                            console.log(`Draft ${draft.draft_id} for season ${draft.season}, type: ${draft.type}, status: ${draft.status}`);
+                            
+                            // Get draft order - this tells us which roster picks in what slot
+                            if (draft.draft_order) {
+                                console.log('Draft order:', draft.draft_order);
+                                
+                                // draft_order maps roster_id to their draft position (1-12)
+                                Object.keys(draft.draft_order).forEach(rosterId => {
+                                    const draftPosition = draft.draft_order[rosterId];
+                                    
+                                    // For each round, calculate their pick
+                                    for (let round = 1; round <= 5; round++) {
+                                        const pickNum = round % 2 === 1 
+                                            ? draftPosition  // Odd rounds: 1st place picks 1.01, last picks 1.12
+                                            : (13 - draftPosition); // Even rounds: snake draft, reverse order
+                                        
+                                        const key = `${draft.season}_${round}_${rosterId}`;
+                                        draftSlotMap[key] = pickNum;
+                                        
+                                        if (round === 1) {
+                                            console.log(`  Roster ${rosterId} picks at position ${draftPosition} -> Round 1 pick ${pickNum}`);
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                
                 for (const seasonData of seasons) {
                     console.log(`Fetching trades for season ${seasonData.season}, league ${seasonData.leagueId}`);
                     
@@ -2697,6 +2766,21 @@
                     console.log(`Found ${trades.length} trades in season ${seasonData.season}`);
                     
                     trades.forEach(trade => {
+                        // Enrich draft picks with slot information from draftSlotMap
+                        if (trade.draft_picks) {
+                            trade.draft_picks = trade.draft_picks.map(pick => {
+                                const key = `${pick.season}_${pick.round}_${pick.owner_id}`;
+                                const calculatedSlot = draftSlotMap[key];
+                                
+                                if (calculatedSlot && !pick.draft_slot) {
+                                    console.log(`Enriching pick: ${pick.season} Rd ${pick.round} for roster ${pick.owner_id} -> slot ${calculatedSlot}`);
+                                    return { ...pick, draft_slot: calculatedSlot };
+                                }
+                                
+                                return pick;
+                            });
+                        }
+                        
                         allTrades.push({
                             ...trade,
                             season: seasonData.season,
