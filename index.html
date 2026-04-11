@@ -2714,25 +2714,45 @@
                         for (const draft of drafts) {
                             console.log(`Draft ${draft.draft_id} for season ${draft.season}, type: ${draft.type}, status: ${draft.status}`);
                             
-                            // Get draft order - this tells us which roster picks in what slot
+                            // Get draft order - this tells us which USER picks in what slot
                             if (draft.draft_order) {
-                                console.log('Draft order:', draft.draft_order);
+                                console.log('Draft order (by user_id):', draft.draft_order);
                                 
-                                // draft_order maps roster_id to their draft position (1-12)
-                                Object.keys(draft.draft_order).forEach(rosterId => {
-                                    const draftPosition = draft.draft_order[rosterId];
+                                // draft_order maps USER_ID to their draft position (1-12)
+                                // We need to convert this to ROSTER_ID -> pick number
+                                
+                                // First, get the rosters for this season to map user_id -> roster_id
+                                const seasonRosterMap = {}; // Maps user_id to roster_id for this season
+                                seasonRosters.forEach(r => {
+                                    seasonRosterMap[r.owner_id] = r.roster_id;
+                                });
+                                
+                                Object.keys(draft.draft_order).forEach(userId => {
+                                    const draftPosition = draft.draft_order[userId];
+                                    const rosterId = seasonRosterMap[userId]; // Convert user_id to roster_id
                                     
-                                    // For each round, calculate their pick
+                                    if (!rosterId) {
+                                        console.log(`⚠️ Could not find roster for user ${userId}`);
+                                        return;
+                                    }
+                                    
+                                    // For each round, calculate their pick (snake draft for snake, linear for linear)
                                     for (let round = 1; round <= 5; round++) {
-                                        const pickNum = round % 2 === 1 
-                                            ? draftPosition  // Odd rounds: 1st place picks 1.01, last picks 1.12
-                                            : (13 - draftPosition); // Even rounds: snake draft, reverse order
+                                        let pickNum;
+                                        if (draft.type === 'snake') {
+                                            pickNum = round % 2 === 1 
+                                                ? draftPosition  // Odd rounds: straight order
+                                                : (13 - draftPosition); // Even rounds: reverse
+                                        } else {
+                                            // Linear draft - same order every round
+                                            pickNum = draftPosition;
+                                        }
                                         
                                         const key = `${draft.season}_${round}_${rosterId}`;
                                         draftSlotMap[key] = pickNum;
                                         
                                         if (round === 1) {
-                                            console.log(`  Roster ${rosterId} picks at position ${draftPosition} -> Round 1 pick ${pickNum}`);
+                                            console.log(`  Roster ${rosterId} (user ${userId}) picks at position ${draftPosition} -> Round 1 pick ${pickNum}`);
                                         }
                                     }
                                 });
