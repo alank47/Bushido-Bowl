@@ -2867,11 +2867,15 @@
                         // Enrich draft picks with slot information from draftSlotMap
                         if (trade.draft_picks) {
                             trade.draft_picks = trade.draft_picks.map(pick => {
-                                const key = `${pick.season}_${pick.round}_${pick.owner_id}`;
+                                // Use previous_owner_id to get the ORIGINAL owner's draft slot
+                                // This shows the pick as it was WHEN traded (e.g., "1.11" for akent47's pick)
+                                // rather than where it ended up after being traded (e.g., "1.03" for SeltzerBoyz)
+                                const originalOwner = pick.previous_owner_id || pick.owner_id;
+                                const key = `${pick.season}_${pick.round}_${originalOwner}`;
                                 const calculatedSlot = draftSlotMap[key];
                                 
                                 if (calculatedSlot && !pick.draft_slot) {
-                                    console.log(`Enriching pick: ${pick.season} Rd ${pick.round} for roster ${pick.owner_id} -> slot ${calculatedSlot}`);
+                                    console.log(`Enriching pick: ${pick.season} Rd ${pick.round} for roster ${originalOwner} (previous_owner: ${pick.previous_owner_id}) -> slot ${calculatedSlot}`);
                                     return { ...pick, draft_slot: calculatedSlot };
                                 }
                                 
