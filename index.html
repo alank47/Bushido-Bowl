@@ -1075,6 +1075,14 @@
             display: flex;
             gap: 15px;
             font-size: 0.9rem;
+            align-items: center;
+        }
+
+        .value-label {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .value-then {
@@ -1084,6 +1092,7 @@
         .value-now {
             color: var(--accent-green);
             font-weight: 700;
+            font-size: 1.1rem;
         }
 
         .value-change {
@@ -2636,36 +2645,68 @@
                 const rosters = JSON.parse(sessionStorage.getItem('rosters'));
                 const users = JSON.parse(sessionStorage.getItem('users'));
                 
+                console.log('Current league rosters:', rosters);
+                console.log('Current league users:', users);
+                
                 // Create user map
                 const userMap = {};
                 users.forEach(u => {
                     userMap[u.user_id] = u.display_name || u.username;
                 });
                 
-                // Create roster to user map
+                console.log('User map:', userMap);
+                
+                // Create roster to user map for CURRENT league
                 const rosterToUser = {};
                 rosters.forEach(r => {
                     rosterToUser[r.roster_id] = userMap[r.owner_id];
                 });
+                
+                console.log('Current league roster to user map:', rosterToUser);
                 
                 // Fetch all seasons to get all trades
                 const seasons = await fetchAllSeasons(leagueId);
                 const allTrades = [];
                 
                 for (const seasonData of seasons) {
+                    console.log(`Fetching trades for season ${seasonData.season}, league ${seasonData.leagueId}`);
+                    
+                    // Fetch users and rosters for THIS season's league
+                    const seasonUsers = await fetchLeagueUsers(seasonData.leagueId);
+                    const seasonRosters = await fetchLeagueRosters(seasonData.leagueId);
+                    
+                    // Build user map for this season
+                    const seasonUserMap = {};
+                    seasonUsers.forEach(u => {
+                        seasonUserMap[u.user_id] = u.display_name || u.username;
+                    });
+                    
+                    // Build roster to user map for this season
+                    const seasonRosterToUser = {};
+                    seasonRosters.forEach(r => {
+                        seasonRosterToUser[r.roster_id] = seasonUserMap[r.owner_id];
+                    });
+                    
+                    console.log(`Season ${seasonData.season} roster map:`, seasonRosterToUser);
+                    
                     const transactions = await fetchSleeperTransactions(seasonData.leagueId);
                     
                     // Filter for trades only
                     const trades = transactions.filter(t => t.type === 'trade' && t.status === 'complete');
                     
+                    console.log(`Found ${trades.length} trades in season ${seasonData.season}`);
+                    
                     trades.forEach(trade => {
                         allTrades.push({
                             ...trade,
                             season: seasonData.season,
-                            rosterToUser: rosterToUser
+                            rosterToUser: seasonRosterToUser, // Use season-specific mapping
+                            userMap: seasonUserMap
                         });
                     });
                 }
+                
+                console.log('All trades loaded:', allTrades);
                 
                 if (allTrades.length === 0) {
                     tradesContent.innerHTML = `
@@ -2712,23 +2753,41 @@
             let html = `<div class="trades-list">`;
             
             trades.forEach((trade, index) => {
-                const date = new Date(trade.created).toLocaleDateString();
+                console.log(`Rendering trade ${index}:`, trade);
+                
+                const date = new Date(trade.created).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                
+                // Get roster IDs involved in the trade
                 const rosterIds = trade.roster_ids ? Object.keys(trade.roster_ids) : [];
                 
-                if (rosterIds.length !== 2) return; // Skip if not a 2-team trade
+                console.log(`Trade ${index} roster IDs:`, rosterIds);
+                console.log(`Trade ${index} roster to user map:`, trade.rosterToUser);
+                
+                if (rosterIds.length !== 2) {
+                    console.log(`Skipping trade ${index} - invalid roster count:`, rosterIds.length);
+                    return; // Skip if not a 2-team trade
+                }
                 
                 const roster1 = rosterIds[0];
                 const roster2 = rosterIds[1];
-                const team1 = trade.rosterToUser[roster1] || 'Unknown Team';
-                const team2 = trade.rosterToUser[roster2] || 'Unknown Team';
+                const team1 = trade.rosterToUser[roster1] || `Team ${roster1}`;
+                const team2 = trade.rosterToUser[roster2] || `Team ${roster2}`;
+                
+                console.log(`Trade ${index} teams: ${team1} vs ${team2}`);
                 
                 // Get players each team received
                 const team1Adds = [];
                 const team2Adds = [];
                 
                 if (trade.adds) {
+                    console.log(`Trade ${index} adds:`, trade.adds);
                     Object.keys(trade.adds).forEach(playerId => {
                         const receivingRoster = trade.adds[playerId];
+                        console.log(`Player ${playerId} goes to roster ${receivingRoster}`);
                         if (receivingRoster === parseInt(roster1)) {
                             team1Adds.push(playerId);
                         } else if (receivingRoster === parseInt(roster2)) {
@@ -2742,15 +2801,20 @@
                 const team2Picks = [];
                 
                 if (trade.draft_picks) {
+                    console.log(`Trade ${index} draft picks:`, trade.draft_picks);
                     trade.draft_picks.forEach(pick => {
                         const pickDesc = `${pick.season} Rd ${pick.round}`;
-                        if (pick.owner_id === parseInt(roster1)) {
-                            team2Picks.push(pickDesc); // They're giving it to team 2
-                        } else if (pick.owner_id === parseInt(roster2)) {
-                            team1Picks.push(pickDesc); // They're giving it to team 1
+                        // owner_id is who OWNS the pick, roster_id is who it goes TO
+                        if (pick.roster_id === parseInt(roster1)) {
+                            team1Picks.push(pickDesc);
+                        } else if (pick.roster_id === parseInt(roster2)) {
+                            team2Picks.push(pickDesc);
                         }
                     });
                 }
+                
+                console.log(`Team 1 (${team1}) gets: ${team1Adds.length} players, ${team1Picks.length} picks`);
+                console.log(`Team 2 (${team2}) gets: ${team2Adds.length} players, ${team2Picks.length} picks`);
                 
                 html += `
                     <div class="trade-card" data-trade-id="${index}">
@@ -2765,9 +2829,10 @@
                                 <ul class="trade-assets">
                                     ${team1Adds.map(playerId => `
                                         <li class="trade-asset">
-                                            <span class="asset-name" data-player-id="${playerId}">Loading...</span>
+                                            <span class="asset-name" data-player-id="${playerId}">Loading player...</span>
                                             <div class="asset-values">
-                                                <span class="value-then">Player</span>
+                                                <span class="value-label">Value:</span>
+                                                <span class="value-then">Loading...</span>
                                             </div>
                                         </li>
                                     `).join('')}
@@ -2775,10 +2840,12 @@
                                         <li class="trade-asset">
                                             <span class="asset-name">${pick}</span>
                                             <div class="asset-values">
-                                                <span class="value-then">Pick</span>
+                                                <span class="value-label">Type:</span>
+                                                <span class="value-then">Draft Pick</span>
                                             </div>
                                         </li>
                                     `).join('')}
+                                    ${team1Adds.length === 0 && team1Picks.length === 0 ? '<li class="trade-asset"><span class="asset-name">No assets</span></li>' : ''}
                                 </ul>
                             </div>
                             
@@ -2789,9 +2856,10 @@
                                 <ul class="trade-assets">
                                     ${team2Adds.map(playerId => `
                                         <li class="trade-asset">
-                                            <span class="asset-name" data-player-id="${playerId}">Loading...</span>
+                                            <span class="asset-name" data-player-id="${playerId}">Loading player...</span>
                                             <div class="asset-values">
-                                                <span class="value-then">Player</span>
+                                                <span class="value-label">Value:</span>
+                                                <span class="value-then">Loading...</span>
                                             </div>
                                         </li>
                                     `).join('')}
@@ -2799,10 +2867,12 @@
                                         <li class="trade-asset">
                                             <span class="asset-name">${pick}</span>
                                             <div class="asset-values">
-                                                <span class="value-then">Pick</span>
+                                                <span class="value-label">Type:</span>
+                                                <span class="value-then">Draft Pick</span>
                                             </div>
                                         </li>
                                     `).join('')}
+                                    ${team2Adds.length === 0 && team2Picks.length === 0 ? '<li class="trade-asset"><span class="asset-name">No assets</span></li>' : ''}
                                 </ul>
                             </div>
                         </div>
@@ -2823,18 +2893,77 @@
 
         async function loadPlayerNames() {
             try {
-                const response = await fetch('https://api.sleeper.app/v1/players/nfl');
-                const allPlayers = await response.json();
+                // Fetch Sleeper player data
+                const sleeperResponse = await fetch('https://api.sleeper.app/v1/players/nfl');
+                const allPlayers = await sleeperResponse.json();
                 
+                // Fetch FantasyCalc values
+                console.log('Fetching FantasyCalc values...');
+                const fcResponse = await fetch('https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=12&ppr=1');
+                const fcData = await fcResponse.json();
+                
+                console.log('FantasyCalc data loaded:', fcData);
+                
+                // Create a map of player name to value
+                const fcValueMap = {};
+                if (fcData && Array.isArray(fcData)) {
+                    fcData.forEach(player => {
+                        const fullName = `${player.player.firstName} ${player.player.lastName}`.toLowerCase();
+                        fcValueMap[fullName] = player.value;
+                    });
+                }
+                
+                console.log('FantasyCalc value map created with', Object.keys(fcValueMap).length, 'players');
+                
+                // Update each player element
                 document.querySelectorAll('[data-player-id]').forEach(el => {
                     const playerId = el.getAttribute('data-player-id');
                     const player = allPlayers[playerId];
+                    
                     if (player) {
-                        el.textContent = `${player.first_name} ${player.last_name}`;
+                        const playerName = `${player.first_name} ${player.last_name}`;
+                        el.textContent = playerName;
+                        
+                        // Try to find FantasyCalc value
+                        const fullNameLower = playerName.toLowerCase();
+                        const fcValue = fcValueMap[fullNameLower];
+                        
+                        // Update the value display
+                        const valueContainer = el.closest('.trade-asset').querySelector('.asset-values');
+                        if (fcValue) {
+                            valueContainer.innerHTML = `
+                                <span class="value-label">Value:</span>
+                                <span class="value-now">${fcValue.toFixed(0)}</span>
+                            `;
+                        } else {
+                            valueContainer.innerHTML = `
+                                <span class="value-label">Value:</span>
+                                <span class="value-then">N/A</span>
+                            `;
+                        }
+                    } else {
+                        el.textContent = `Player ${playerId}`;
                     }
                 });
+                
             } catch (error) {
                 console.error('Error loading player names:', error);
+                
+                // Fallback: just load player names without values
+                try {
+                    const response = await fetch('https://api.sleeper.app/v1/players/nfl');
+                    const allPlayers = await response.json();
+                    
+                    document.querySelectorAll('[data-player-id]').forEach(el => {
+                        const playerId = el.getAttribute('data-player-id');
+                        const player = allPlayers[playerId];
+                        if (player) {
+                            el.textContent = `${player.first_name} ${player.last_name}`;
+                        }
+                    });
+                } catch (err) {
+                    console.error('Error loading Sleeper player names:', err);
+                }
             }
         }
 
