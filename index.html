@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="theme-color" content="#0a0e1a">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Dynasty League Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2713,17 +2713,44 @@
             
             trades.forEach((trade, index) => {
                 const date = new Date(trade.created).toLocaleDateString();
-                const rosterIds = Object.keys(trade.roster_ids || {});
+                const rosterIds = trade.roster_ids ? Object.keys(trade.roster_ids) : [];
                 
                 if (rosterIds.length !== 2) return; // Skip if not a 2-team trade
                 
                 const roster1 = rosterIds[0];
                 const roster2 = rosterIds[1];
-                const team1 = trade.rosterToUser[roster1] || 'Unknown';
-                const team2 = trade.rosterToUser[roster2] || 'Unknown';
+                const team1 = trade.rosterToUser[roster1] || 'Unknown Team';
+                const team2 = trade.rosterToUser[roster2] || 'Unknown Team';
                 
-                const team1Adds = trade.adds ? Object.keys(trade.adds).filter(p => trade.adds[p] === parseInt(roster1)) : [];
-                const team2Adds = trade.adds ? Object.keys(trade.adds).filter(p => trade.adds[p] === parseInt(roster2)) : [];
+                // Get players each team received
+                const team1Adds = [];
+                const team2Adds = [];
+                
+                if (trade.adds) {
+                    Object.keys(trade.adds).forEach(playerId => {
+                        const receivingRoster = trade.adds[playerId];
+                        if (receivingRoster === parseInt(roster1)) {
+                            team1Adds.push(playerId);
+                        } else if (receivingRoster === parseInt(roster2)) {
+                            team2Adds.push(playerId);
+                        }
+                    });
+                }
+                
+                // Handle draft picks
+                const team1Picks = [];
+                const team2Picks = [];
+                
+                if (trade.draft_picks) {
+                    trade.draft_picks.forEach(pick => {
+                        const pickDesc = `${pick.season} Rd ${pick.round}`;
+                        if (pick.owner_id === parseInt(roster1)) {
+                            team2Picks.push(pickDesc); // They're giving it to team 2
+                        } else if (pick.owner_id === parseInt(roster2)) {
+                            team1Picks.push(pickDesc); // They're giving it to team 1
+                        }
+                    });
+                }
                 
                 html += `
                     <div class="trade-card" data-trade-id="${index}">
@@ -2738,9 +2765,17 @@
                                 <ul class="trade-assets">
                                     ${team1Adds.map(playerId => `
                                         <li class="trade-asset">
-                                            <span class="asset-name" data-player-id="${playerId}">Player ${playerId}</span>
+                                            <span class="asset-name" data-player-id="${playerId}">Loading...</span>
                                             <div class="asset-values">
-                                                <span class="value-then">Loading...</span>
+                                                <span class="value-then">Player</span>
+                                            </div>
+                                        </li>
+                                    `).join('')}
+                                    ${team1Picks.map(pick => `
+                                        <li class="trade-asset">
+                                            <span class="asset-name">${pick}</span>
+                                            <div class="asset-values">
+                                                <span class="value-then">Pick</span>
                                             </div>
                                         </li>
                                     `).join('')}
@@ -2754,9 +2789,17 @@
                                 <ul class="trade-assets">
                                     ${team2Adds.map(playerId => `
                                         <li class="trade-asset">
-                                            <span class="asset-name" data-player-id="${playerId}">Player ${playerId}</span>
+                                            <span class="asset-name" data-player-id="${playerId}">Loading...</span>
                                             <div class="asset-values">
-                                                <span class="value-then">Loading...</span>
+                                                <span class="value-then">Player</span>
+                                            </div>
+                                        </li>
+                                    `).join('')}
+                                    ${team2Picks.map(pick => `
+                                        <li class="trade-asset">
+                                            <span class="asset-name">${pick}</span>
+                                            <div class="asset-values">
+                                                <span class="value-then">Pick</span>
                                             </div>
                                         </li>
                                     `).join('')}
@@ -2809,24 +2852,65 @@
                 const response = await fetch('https://api.sleeper.app/v1/players/nfl');
                 const allPlayers = await response.json();
                 
-                const rosterIds = Object.keys(trade.roster_ids);
+                // Get roster IDs from the trade
+                const rosterIds = trade.roster_ids ? Object.keys(trade.roster_ids) : [];
+                
+                if (rosterIds.length < 2) {
+                    throw new Error('Invalid trade structure - not enough teams');
+                }
+                
                 const roster1 = rosterIds[0];
                 const roster2 = rosterIds[1];
-                const team1 = trade.rosterToUser[roster1];
-                const team2 = trade.rosterToUser[roster2];
+                const team1 = trade.rosterToUser[roster1] || 'Team 1';
+                const team2 = trade.rosterToUser[roster2] || 'Team 2';
                 
-                const team1Adds = trade.adds ? Object.keys(trade.adds).filter(p => trade.adds[p] === parseInt(roster1)) : [];
-                const team2Adds = trade.adds ? Object.keys(trade.adds).filter(p => trade.adds[p] === parseInt(roster2)) : [];
+                // Get players each team received
+                const team1Adds = [];
+                const team2Adds = [];
+                
+                if (trade.adds) {
+                    Object.keys(trade.adds).forEach(playerId => {
+                        const receivingRoster = trade.adds[playerId];
+                        if (receivingRoster === parseInt(roster1)) {
+                            team1Adds.push(playerId);
+                        } else if (receivingRoster === parseInt(roster2)) {
+                            team2Adds.push(playerId);
+                        }
+                    });
+                }
+                
+                // Include draft picks if any
+                const team1Picks = [];
+                const team2Picks = [];
+                
+                if (trade.draft_picks) {
+                    trade.draft_picks.forEach(pick => {
+                        const pickDesc = `${pick.season} Round ${pick.round} Pick`;
+                        if (pick.owner_id === parseInt(roster1)) {
+                            team2Picks.push(pickDesc); // They're giving it away
+                        } else if (pick.owner_id === parseInt(roster2)) {
+                            team1Picks.push(pickDesc); // They're giving it away
+                        }
+                    });
+                }
                 
                 const team1Players = team1Adds.map(id => {
                     const p = allPlayers[id];
-                    return p ? `${p.first_name} ${p.last_name} (${p.position})` : 'Unknown';
+                    return p ? `${p.first_name} ${p.last_name} (${p.position})` : `Player ${id}`;
                 });
                 
                 const team2Players = team2Adds.map(id => {
                     const p = allPlayers[id];
-                    return p ? `${p.first_name} ${p.last_name} (${p.position})` : 'Unknown';
+                    return p ? `${p.first_name} ${p.last_name} (${p.position})` : `Player ${id}`;
                 });
+                
+                // Add picks to player lists
+                team1Players.push(...team1Picks);
+                team2Players.push(...team2Picks);
+                
+                if (team1Players.length === 0 && team2Players.length === 0) {
+                    throw new Error('No assets found in this trade');
+                }
                 
                 const tradeDate = new Date(trade.created).toLocaleDateString();
                 
