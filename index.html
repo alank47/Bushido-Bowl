@@ -3576,94 +3576,88 @@
         }
 
         async function generateTradeAnalysis(team1, team1Assets, team2, team2Assets, tradeDate, team1Value, team2Value) {
-            // AI-powered analysis in Mike Wilcoxon's voice
-            try {
-                // Gather roster context for both teams
-                const rosters = JSON.parse(sessionStorage.getItem('rosters') || '[]');
-                const team1Roster = rosters.find(r => r.display_name === team1 || r.metadata?.team_name === team1);
-                const team2Roster = rosters.find(r => r.display_name === team2 || r.metadata?.team_name === team2);
-                
-                // Calculate fairness
-                const diff = Math.abs(team1Value - team2Value);
-                const larger = Math.max(team1Value, team2Value);
-                const diffPercent = larger > 0 ? (diff / larger * 100).toFixed(1) : 0;
-                
-                let fairness = '✓ Fair Trade';
-                if (diffPercent > 30) fairness = '🚨 Lopsided';
-                else if (diffPercent > 15) fairness = '⚠ Slight Imbalance';
-                
-                const winner = team1Value > team2Value ? team1 : team2;
-                const loser = team1Value > team2Value ? team2 : team1;
-                
-                // Build the prompt for Claude
-                const prompt = `You are Mike Wilcoxon - a 30-something father, GM of AMC Theaters in San Diego, huge Kanye West fan, Survivor superfan, LA Chargers die-hard, and A24 film enthusiast who loves Chili's triple dipper. You're analyzing a dynasty fantasy football trade for your league buddies.
-
-TRADE DETAILS:
-Date: ${tradeDate}
-${team1} receives: ${team1Assets.map(a => a.desc || a).join(', ')} (Total Value: ${team1Value})
-${team2} receives: ${team2Assets.map(a => a.desc || a).join(', ')} (Total Value: ${team2Value})
-Trade Fairness: ${fairness} (${diffPercent}% difference)
-
-CONTEXT:
-- This is a 5-year dynasty league with a growing prize pot
-- Winner after 5 years takes the whole pot (it's HUGE)
-- Both teams are trying to position for that final payday
-
-YOUR TASK:
-Write a detailed trade analysis covering:
-
-1. **Immediate Winner/Loser**: Who got the better deal and why? (Consider both value AND fit)
-
-2. **Win-Now vs Rebuild Impact**: How does this move each team's championship window? Are they pushing chips in or playing the long game?
-
-3. **5-Year Pot Quest**: How does this trade impact each team's chances of winning the BIG pot in 5 years? This is dynasty - it's about sustained excellence, not just this season.
-
-4. **Risk & Opportunity**: What could go right? What could go wrong? Age, injury history, situation changes?
-
-STYLE NOTES:
-- Write like you're texting the group chat - casual, fun, insightful
-- Drop occasional pop culture refs (Kanye lyrics, Survivor strategy, A24 vibes, Chargers pain)
-- Be honest but not mean - these are your boys
-- Use "bro," "my guy," "homie" naturally
-- 3-4 paragraphs, conversational but substantive
-- End with a spicy take or prediction
-
-Keep it real, keep it Mike.`;
-
-                // Call Claude API
-                const response = await fetch("https://api.anthropic.com/v1/messages", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        model: "claude-sonnet-4-20250514",
-                        max_tokens: 1000,
-                        messages: [
-                            { role: "user", content: prompt }
-                        ],
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`API request failed: ${response.status}`);
-                }
-
-                const data = await response.json();
-                
-                // Extract text from response
-                const analysisText = data.content
-                    .filter(item => item.type === "text")
-                    .map(item => item.text)
-                    .join("\n\n");
-
-                return analysisText || "Analysis generation failed - no content returned.";
-                
-            } catch (error) {
-                console.error('Error generating AI analysis:', error);
-                // Fallback to basic analysis
-                return `**Quick Take:**\n\n${team1} gets ${team1Assets.length} asset(s) worth ${team1Value.toLocaleString()} points.\n${team2} gets ${team2Assets.length} asset(s) worth ${team2Value.toLocaleString()} points.\n\nAI analysis unavailable - check console for details.`;
+            // Mike Wilcoxon-style analysis (no API needed)
+            
+            // Calculate fairness
+            const diff = Math.abs(team1Value - team2Value);
+            const larger = Math.max(team1Value, team2Value);
+            const diffPercent = larger > 0 ? (diff / larger * 100) : 0;
+            
+            const winner = team1Value > team2Value ? team1 : team2;
+            const loser = team1Value > team2Value ? team2 : team1;
+            const winnerAssets = team1Value > team2Value ? team1Assets : team2Assets;
+            const loserAssets = team1Value > team2Value ? team2Assets : team1Assets;
+            const winnerValue = Math.max(team1Value, team2Value);
+            const loserValue = Math.min(team1Value, team2Value);
+            
+            // Check for picks vs players
+            const team1Picks = team1Assets.filter(a => a.desc.includes('Rd') || a.desc.includes('Pick') || a.desc.includes('2026') || a.desc.includes('2027'));
+            const team2Picks = team2Assets.filter(a => a.desc.includes('Rd') || a.desc.includes('Pick') || a.desc.includes('2026') || a.desc.includes('2027'));
+            const team1Players = team1Assets.filter(a => !a.desc.includes('Rd') && !a.desc.includes('Pick') && !a.desc.includes('202'));
+            const team2Players = team2Assets.filter(a => !a.desc.includes('Rd') && !a.desc.includes('Pick') && !a.desc.includes('202'));
+            
+            const winnerPickHeavy = (team1Value > team2Value && team1Picks.length > team1Players.length) || (team2Value > team1Value && team2Picks.length > team2Players.length);
+            const loserPickHeavy = (team1Value < team2Value && team1Picks.length > team1Players.length) || (team2Value < team1Value && team2Picks.length > team2Players.length);
+            
+            // Mike's opening
+            const openings = [
+                `Okay so lemme break this one down real quick while I'm on my lunch break at the AMC -`,
+                `Alright homies, just watched The Iron Claw (A24 vibes heavy) and now let's talk about this trade -`,
+                `Yo, this trade popped up right as I was vibing to Graduation, so you KNOW I gotta analyze it -`,
+                `Just finished my triple dipper at Chili's and saw this notification - let's dive in, bro.`,
+                `My daughter just went down for a nap so I got exactly 20 minutes to break this down before chaos returns -`
+            ];
+            
+            let analysis = openings[Math.floor(Math.random() * openings.length)] + '\n\n';
+            
+            // Winner assessment
+            if (diffPercent > 30) {
+                analysis += `**THE VERDICT: ${winner.toUpperCase()} WON THIS, AND IT AIN'T CLOSE** 🚨\n\n`;
+                analysis += `My guy ${loser}, what are we doing here? This is like voting someone out at tribal council and then realizing you just sent home your only ally. ${winner} is walking away with ${winnerValue.toLocaleString()} in value while you're sitting at ${loserValue.toLocaleString()}. That's a ${diffPercent.toFixed(0)}% gap - bigger than the Chargers' hope-to-disappointment ratio every season.\n\n`;
+            } else if (diffPercent > 15) {
+                analysis += `**THE VERDICT: ${winner} edges this one out** ⚠️\n\n`;
+                analysis += `Look, it's not a fleece, but ${winner} definitely came out ahead here. We're talking ${winnerValue.toLocaleString()} vs ${loserValue.toLocaleString()} - about ${diffPercent.toFixed(0)}% difference. Not highway robbery, but ${loser} could've held out for a bit more. This is like accepting the first offer on Pawn Stars instead of negotiating.\n\n`;
+            } else {
+                analysis += `**THE VERDICT: Pretty Fair, Actually** ✓\n\n`;
+                analysis += `Honestly? Both sides got solid value here. ${team1Value.toLocaleString()} vs ${team2Value.toLocaleString()} - that's only ${diffPercent.toFixed(0)}% apart. This is the kind of trade where team needs matter more than raw value. Both GMs knew what they were doing.\n\n`;
             }
+            
+            // Strategy breakdown
+            analysis += `**THE STRATEGY:**\n`;
+            
+            if (team1Picks.length > 0 && team2Picks.length === 0) {
+                analysis += `${team1} is stockpiling picks like they're building for next year's draft class - classic rebuild mode. Meanwhile ${team2} is saying "we're going for it NOW" with ${team2Players.map(p => p.desc).join(', ')}. `;
+            } else if (team2Picks.length > 0 && team1Picks.length === 0) {
+                analysis += `${team2} is loading up on future capital while ${team1} is getting instant roster help. ${team1} is clearly in win-now mode, probably looking at that championship pot like I look at the A24 release schedule - with intense focus. `;
+            } else if (team1Picks.length > 0 && team2Picks.length > 0) {
+                analysis += `Both teams swapping picks AND players? This is some 4D chess. Both trying to retool without fully committing to a rebuild. Smart moves on both sides, honestly. `;
+            } else {
+                analysis += `Straight player-for-player swap. No draft capital involved, just roster construction. Both teams trying to fill specific needs. `;
+            }
+            
+            // 5-year pot analysis
+            analysis += `\n\n**THE 5-YEAR POT RACE:**\n`;
+            
+            if (winnerPickHeavy) {
+                analysis += `${winner} is playing the long game here. Those picks could be the foundation for a dynasty run in years 3-5. It's like how Kanye built MBDTF - you gotta invest in the process to get masterpiece results. The pot won't be won this year, but in 2028-2029? ${winner} might be sitting pretty.\n\n`;
+            } else if (loserPickHeavy) {
+                analysis += `${loser} is betting on youth and upside, which is EXACTLY what you need for a 5-year pot. Sure, they "lost" on value today, but those picks could develop into studs. This is the patient play - like waiting for the perfect blindside moment in Survivor.\n\n`;
+            } else {
+                analysis += `For the 5-year pot? ${winner} just improved their chances by consolidating value into proven assets. Championships aren't won in Year 1 - they're won in Year 4 when everyone else's rosters have aged out and you're still competitive. ${winner} is positioning for sustained excellence.\n\n`;
+            }
+            
+            // Closing take
+            const closings = [
+                `Bottom line: ${winner} came out ahead, but dynasty is about sustained success. Check back in 2 years when half these players are on different teams and we'll see who really won. Now if you'll excuse me, I gotta go watch some film (Midsommar for the 3rd time).`,
+                `TL;DR - ${winner} won the trade, but the pot is won over 5 years, not one transaction. Everyone's still in the hunt. Anyway, the Chargers play Sunday and I'm ready to be hurt again. ⚡`,
+                `Final word: ${winner} took this round, but ${loser} could still make the playoffs and prove the value wrong. That's why we play the games, homie. Alright, gotta go - someone's asking me about showtimes for Challengers.`,
+                `So yeah, ${winner} won this one. But remember - this pot is a marathon, not a sprint. Just like raising a toddler. Speaking of which, I hear crying. Peace. ✌️`,
+                `In conclusion: ${winner} got the better end, but dynasty is wild and anything can happen. Now I'm gonna go listen to 808s & Heartbreak and contemplate my life choices (like being a Chargers fan). 🌊`
+            ];
+            
+            analysis += closings[Math.floor(Math.random() * closings.length)];
+            
+            return analysis;
         }
 
         function showManualTradeForm() {
