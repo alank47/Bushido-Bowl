@@ -2978,10 +2978,19 @@
                 
                 console.log(`Trade ${index} teams: ${team1} (roster ${roster1}) vs ${team2} (roster ${roster2})`);
                 
-                // Debug specific trade
+                // Debug specific trades
                 if ((team1.includes('akent47') && team2.includes('MtnDewds')) || 
                     (team1.includes('MtnDewds') && team2.includes('akent47'))) {
                     console.log('🔍 FOUND AKENT47/MTNDEWDS TRADE - DETAILED DEBUG:');
+                    console.log('  Full trade object:', trade);
+                    console.log('  Consenter IDs:', trade.consenter_ids);
+                    console.log('  Adds object:', trade.adds);
+                    console.log('  Draft picks:', trade.draft_picks);
+                }
+                
+                if ((team1.includes('Dii') && team2.includes('gojohnygogo')) || 
+                    (team1.includes('gojohnygogo') && team2.includes('Dii'))) {
+                    console.log('🔍 FOUND DII/GOJOHNYGOGO TRADE - DETAILED DEBUG:');
                     console.log('  Full trade object:', trade);
                     console.log('  Consenter IDs:', trade.consenter_ids);
                     console.log('  Adds object:', trade.adds);
