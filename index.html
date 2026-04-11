@@ -814,6 +814,9 @@
                     // Fetch matchups for this season
                     const seasonMatchups = await fetchAllMatchups(seasonLeagueId, 18);
                     
+                    // Fetch playoff bracket once for this season
+                    const winnersBracket = await fetchPlayoffBracket(seasonLeagueId);
+                    
                     // Create roster map for this season
                     const rosterMap = {};
                     seasonRosters.forEach(r => {
@@ -862,43 +865,51 @@
                         if (playoffPosition < playoffTeams && wins > 0) {
                             userStats[userId].playoffBerths++;
                         }
+                    });
+                    
+                    // Check championship results using playoff bracket (once per season, outside the roster loop)
+                    if (winnersBracket && winnersBracket.length > 0) {
+                        // Find the championship game (last round)
+                        const championshipRound = Math.max(...winnersBracket.map(m => m.r || 0));
+                        const championshipGame = winnersBracket.find(m => m.r === championshipRound);
                         
-                        // Check championship results using playoff bracket
-                        const winnersBracket = await fetchPlayoffBracket(seasonLeagueId);
-                        
-                        if (winnersBracket && winnersBracket.length > 0) {
-                            // Find the championship game (last round)
-                            const championshipRound = Math.max(...winnersBracket.map(m => m.r || 0));
-                            const championshipGame = winnersBracket.find(m => m.r === championshipRound);
-                            
-                            if (championshipGame) {
-                                // Check if this roster won the championship
-                                if (championshipGame.w === roster.roster_id) {
-                                    userStats[userId].titles++;
-                                    userStats[userId].championshipAppearances++;
-                                    console.log(`✓ CHAMPION: User ${userId}, Roster ${roster.roster_id}, Season ${season}`);
-                                }
-                                // Check if this roster was runner-up
-                                else if (championshipGame.roster_id === roster.roster_id || 
-                                         (championshipGame.t1_from && championshipGame.t1_from.w === roster.roster_id) ||
-                                         (championshipGame.t2_from && championshipGame.t2_from.w === roster.roster_id)) {
-                                    userStats[userId].championshipAppearances++;
-                                    console.log(`✓ RUNNER-UP: User ${userId}, Roster ${roster.roster_id}, Season ${season}`);
+                        if (championshipGame) {
+                            // Find champion roster
+                            const championRosterId = championshipGame.w;
+                            if (championRosterId && rosterMap[championRosterId]) {
+                                const championUserId = rosterMap[championRosterId].owner_id;
+                                if (userStats[championUserId]) {
+                                    userStats[championUserId].titles++;
+                                    userStats[championUserId].championshipAppearances++;
+                                    console.log(`✓ CHAMPION: User ${championUserId}, Roster ${championRosterId}, Season ${season}`);
                                 }
                             }
-                        } else {
-                            // Fallback to roster.settings.rank if bracket data unavailable
+                            
+                            // Find runner-up (loser of championship game)
+                            const runnerUpRosterId = championshipGame.l;
+                            if (runnerUpRosterId && rosterMap[runnerUpRosterId]) {
+                                const runnerUpUserId = rosterMap[runnerUpRosterId].owner_id;
+                                if (userStats[runnerUpUserId]) {
+                                    userStats[runnerUpUserId].championshipAppearances++;
+                                    console.log(`✓ RUNNER-UP: User ${runnerUpUserId}, Roster ${runnerUpRosterId}, Season ${season}`);
+                                }
+                            }
+                        }
+                    } else {
+                        // Fallback to roster.settings.rank if bracket data unavailable
+                        seasonRosters.forEach(roster => {
+                            const userId = roster.owner_id;
                             const finalRanking = roster.settings.rank || 0;
-                            if (finalRanking === 1) {
+                            if (finalRanking === 1 && userStats[userId]) {
                                 userStats[userId].titles++;
                                 userStats[userId].championshipAppearances++;
                                 console.log(`✓ CHAMPION (fallback): User ${userId}, Roster ${roster.roster_id}, Season ${season}`);
-                            } else if (finalRanking === 2) {
+                            } else if (finalRanking === 2 && userStats[userId]) {
                                 userStats[userId].championshipAppearances++;
                                 console.log(`✓ RUNNER-UP (fallback): User ${userId}, Roster ${roster.roster_id}, Season ${season}`);
                             }
-                        }
-                    });
+                        });
+                    }
                 }
                 
                 console.log('=== FINAL USER STATS ===');
