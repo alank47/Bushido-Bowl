@@ -1095,6 +1095,79 @@
             font-size: 1.1rem;
         }
 
+        .trade-total {
+            margin-top: 16px;
+            padding: 12px;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 107, 53, 0.1));
+            border-radius: 8px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+        }
+
+        .total-label {
+            color: var(--accent-gold);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .total-value {
+            color: var(--accent-green);
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .trade-fairness {
+            margin-top: 16px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .fairness-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .fairness-verdict {
+            font-size: 1.1rem;
+            font-weight: 700;
+            padding: 8px 16px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .fairness-fair {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+
+        .fairness-slight {
+            background: rgba(255, 215, 0, 0.2);
+            color: var(--accent-gold);
+            border: 1px solid var(--accent-gold);
+        }
+
+        .fairness-lopsided {
+            background: rgba(255, 107, 53, 0.2);
+            color: var(--accent-orange);
+            border: 1px solid var(--accent-orange);
+        }
+
+        .fairness-details {
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
         .value-change {
             padding: 4px 8px;
             border-radius: 4px;
@@ -2938,15 +3011,40 @@
                             console.log(`    ✓ Unassigned pick: ${pickDesc}`);
                         }
                         
-                        // roster_id is who receives the pick
+                        // roster_id is who receives the pick IN THE FUTURE
+                        // But if it doesn't match either team in THIS trade, the pick is going to someone else later
+                        // In that case, we need to figure out who in THIS trade is giving it away
+                        
+                        let assignedToTeam = false;
+                        
                         if (pick.roster_id === parseInt(roster1)) {
                             console.log(`    → Goes to Team 1 (${team1})`);
                             team1Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
+                            assignedToTeam = true;
                         } else if (pick.roster_id === parseInt(roster2)) {
                             console.log(`    → Goes to Team 2 (${team2})`);
                             team2Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
-                        } else {
-                            console.log(`    ⚠️ ERROR: roster_id ${pick.roster_id} doesn't match roster1 ${roster1} or roster2 ${roster2}`);
+                            assignedToTeam = true;
+                        }
+                        
+                        // If pick doesn't go to either team, it means one team is trading it to a third party
+                        // The team that HAD it is indicated by previous_owner_id
+                        if (!assignedToTeam) {
+                            console.log(`    ⚠️ Pick goes to roster ${pick.roster_id}, not involved in this trade`);
+                            console.log(`    → Checking who's giving it away: previous_owner was roster ${pick.previous_owner_id}`);
+                            
+                            // The team LOSING the pick is the one who had it before (previous_owner_id)
+                            // They're trading it away to someone (roster_id)
+                            // So the OTHER team in THIS trade gets it
+                            if (pick.previous_owner_id === parseInt(roster1)) {
+                                console.log(`    → Team 1 is giving it away, so Team 2 gets it in this trade`);
+                                team2Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
+                            } else if (pick.previous_owner_id === parseInt(roster2)) {
+                                console.log(`    → Team 2 is giving it away, so Team 1 gets it in this trade`);
+                                team1Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
+                            } else {
+                                console.log(`    ⚠️ ERROR: Cannot determine pick flow - previous_owner ${pick.previous_owner_id} not in trade`);
+                            }
                         }
                     });
                 }
@@ -2964,7 +3062,7 @@
                         <div class="trade-teams">
                             <div class="trade-side">
                                 <div class="trade-team-name">${team1}</div>
-                                <ul class="trade-assets">
+                                <ul class="trade-assets" data-team="1">
                                     ${team1Adds.map(playerId => `
                                         <li class="trade-asset">
                                             <span class="asset-name" data-player-id="${playerId}">Loading player...</span>
@@ -2985,13 +3083,17 @@
                                     `).join('')}
                                     ${team1Adds.length === 0 && team1Picks.length === 0 ? '<li class="trade-asset"><span class="asset-name">No assets</span></li>' : ''}
                                 </ul>
+                                <div class="trade-total" data-team="1">
+                                    <span class="total-label">Total Value:</span>
+                                    <span class="total-value">—</span>
+                                </div>
                             </div>
                             
                             <div class="trade-arrow">⇄</div>
                             
                             <div class="trade-side">
                                 <div class="trade-team-name">${team2}</div>
-                                <ul class="trade-assets">
+                                <ul class="trade-assets" data-team="2">
                                     ${team2Adds.map(playerId => `
                                         <li class="trade-asset">
                                             <span class="asset-name" data-player-id="${playerId}">Loading player...</span>
@@ -3012,6 +3114,10 @@
                                     `).join('')}
                                     ${team2Adds.length === 0 && team2Picks.length === 0 ? '<li class="trade-asset"><span class="asset-name">No assets</span></li>' : ''}
                                 </ul>
+                                <div class="trade-total" data-team="2">
+                                    <span class="total-label">Total Value:</span>
+                                    <span class="total-value">—</span>
+                                </div>
                             </div>
                         </div>
                         
@@ -3226,6 +3332,78 @@
                 
                 console.log(`Player matching stats: ${matchedById} matched, ${notMatched} not matched`);
                 console.log(`Pick matching stats: ${pickMatches} matched, ${pickMisses} not matched`);
+                
+                // Calculate totals for each trade
+                document.querySelectorAll('.trade-card').forEach((tradeCard, tradeIndex) => {
+                    // Calculate team 1 total
+                    const team1Assets = tradeCard.querySelectorAll('[data-team="1"] .trade-asset');
+                    let team1Total = 0;
+                    team1Assets.forEach(asset => {
+                        const valueEl = asset.querySelector('.value-now');
+                        if (valueEl) {
+                            const value = parseFloat(valueEl.textContent.replace(/,/g, ''));
+                            if (!isNaN(value)) team1Total += value;
+                        }
+                    });
+                    
+                    // Calculate team 2 total
+                    const team2Assets = tradeCard.querySelectorAll('[data-team="2"] .trade-asset');
+                    let team2Total = 0;
+                    team2Assets.forEach(asset => {
+                        const valueEl = asset.querySelector('.value-now');
+                        if (valueEl) {
+                            const value = parseFloat(valueEl.textContent.replace(/,/g, ''));
+                            if (!isNaN(value)) team2Total += value;
+                        }
+                    });
+                    
+                    // Update total displays
+                    const team1TotalEl = tradeCard.querySelector('[data-team="1"] + .trade-total .total-value');
+                    const team2TotalEl = tradeCard.querySelector('[data-team="2"] + .trade-total .total-value');
+                    
+                    if (team1TotalEl) team1TotalEl.textContent = team1Total > 0 ? team1Total.toLocaleString() : '—';
+                    if (team2TotalEl) team2TotalEl.textContent = team2Total > 0 ? team2Total.toLocaleString() : '—';
+                    
+                    // Calculate fairness
+                    if (team1Total > 0 && team2Total > 0) {
+                        const diff = Math.abs(team1Total - team2Total);
+                        const avgValue = (team1Total + team2Total) / 2;
+                        const diffPercent = (diff / avgValue) * 100;
+                        
+                        let verdict, verdictClass, details;
+                        
+                        if (diffPercent < 15) {
+                            verdict = '✓ Fair Trade';
+                            verdictClass = 'fairness-fair';
+                            details = `Values within ${diffPercent.toFixed(1)}%`;
+                        } else if (diffPercent < 30) {
+                            verdict = '⚠ Slight Imbalance';
+                            verdictClass = 'fairness-slight';
+                            const winner = team1Total > team2Total ? tradeCard.querySelector('[data-team="1"]').closest('.trade-side').querySelector('.trade-team-name').textContent : tradeCard.querySelector('[data-team="2"]').closest('.trade-side').querySelector('.trade-team-name').textContent;
+                            details = `${winner} ahead by ${diffPercent.toFixed(1)}%`;
+                        } else {
+                            verdict = '🚨 Lopsided';
+                            verdictClass = 'fairness-lopsided';
+                            const winner = team1Total > team2Total ? tradeCard.querySelector('[data-team="1"]').closest('.trade-side').querySelector('.trade-team-name').textContent : tradeCard.querySelector('[data-team="2"]').closest('.trade-side').querySelector('.trade-team-name').textContent;
+                            details = `${winner} ahead by ${diffPercent.toFixed(1)}%`;
+                        }
+                        
+                        // Find or create fairness section
+                        let fairnessSection = tradeCard.querySelector('.trade-fairness');
+                        if (!fairnessSection) {
+                            fairnessSection = document.createElement('div');
+                            fairnessSection.className = 'trade-fairness';
+                            const analyzeBtn = tradeCard.querySelector('.analyze-btn');
+                            analyzeBtn.parentNode.insertBefore(fairnessSection, analyzeBtn);
+                        }
+                        
+                        fairnessSection.innerHTML = `
+                            <div class="fairness-label">Trade Fairness (FantasyCalc Values)</div>
+                            <div class="fairness-verdict ${verdictClass}">${verdict}</div>
+                            <div class="fairness-details">${details}</div>
+                        `;
+                    }
+                });
                 
             } catch (error) {
                 console.error('Error loading player values:', error);
