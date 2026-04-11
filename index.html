@@ -2877,26 +2877,20 @@
                     
                     trades.forEach(trade => {
                         // Enrich draft picks with slot information from draftSlotMap
-                        // ONLY if they don't already have draft_slot from Sleeper
+                        // Override Sleeper's draft_slot because it's often wrong for traded picks
                         if (trade.draft_picks) {
                             trade.draft_picks = trade.draft_picks.map(pick => {
-                                // Skip enrichment if pick already has a draft_slot from Sleeper
-                                if (pick.draft_slot) {
-                                    return pick;
-                                }
-                                
-                                // Use previous_owner_id to get the ORIGINAL owner's draft slot
-                                // This shows the pick as it was WHEN traded (e.g., "1.11" for akent47's pick)
-                                // rather than where it ended up after being traded (e.g., "1.03" for SeltzerBoyz)
-                                const originalOwner = pick.previous_owner_id || pick.owner_id;
-                                const key = `${pick.season}_${pick.round}_${originalOwner}`;
+                                // Look up the correct draft slot based on roster_id
+                                // roster_id shows which team's pick this originally was
+                                const key = `${pick.season}_${pick.round}_${pick.roster_id}`;
                                 const calculatedSlot = draftSlotMap[key];
                                 
                                 if (calculatedSlot) {
-                                    console.log(`Enriching pick: ${pick.season} Rd ${pick.round} for roster ${originalOwner} (previous_owner: ${pick.previous_owner_id}) -> slot ${calculatedSlot}`);
+                                    console.log(`Enriching pick: ${pick.season} Rd ${pick.round} for roster ${pick.roster_id} -> slot ${calculatedSlot} (was ${pick.draft_slot})`);
                                     return { ...pick, draft_slot: calculatedSlot };
                                 }
                                 
+                                // If we can't calculate it, keep Sleeper's value
                                 return pick;
                             });
                         }
