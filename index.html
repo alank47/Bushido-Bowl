@@ -2804,12 +2804,26 @@
                 if (trade.draft_picks) {
                     console.log(`Trade ${index} draft picks:`, trade.draft_picks);
                     trade.draft_picks.forEach(pick => {
-                        const pickDesc = `${pick.season} Rd ${pick.round}`;
-                        // owner_id is who OWNS the pick, roster_id is who it goes TO
+                        // Check if pick has draft_slot (order is assigned)
+                        let pickDesc;
+                        if (pick.draft_slot) {
+                            // Pick order is assigned - show as "2026 1.01"
+                            const pickNum = pick.draft_slot.toString().padStart(2, '0');
+                            pickDesc = `${pick.season} ${pick.round}.${pickNum}`;
+                        } else {
+                            // Pick order not assigned yet - show team if available
+                            if (pick.owner_id && trade.rosterToUser[pick.owner_id]) {
+                                pickDesc = `${pick.season} Rd ${pick.round} (${trade.rosterToUser[pick.owner_id]})`;
+                            } else {
+                                pickDesc = `${pick.season} Rd ${pick.round}`;
+                            }
+                        }
+                        
+                        // roster_id is who receives the pick
                         if (pick.roster_id === parseInt(roster1)) {
-                            team1Picks.push(pickDesc);
+                            team1Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
                         } else if (pick.roster_id === parseInt(roster2)) {
-                            team2Picks.push(pickDesc);
+                            team2Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
                         }
                     });
                 }
@@ -2838,11 +2852,11 @@
                                         </li>
                                     `).join('')}
                                     ${team1Picks.map(pick => `
-                                        <li class="trade-asset">
-                                            <span class="asset-name">${pick}</span>
+                                        <li class="trade-asset" data-pick-season="${pick.season}" data-pick-round="${pick.round}">
+                                            <span class="asset-name">${pick.desc}</span>
                                             <div class="asset-values">
-                                                <span class="value-label">Type:</span>
-                                                <span class="value-then">Draft Pick</span>
+                                                <span class="value-label">Value:</span>
+                                                <span class="value-then">Loading...</span>
                                             </div>
                                         </li>
                                     `).join('')}
@@ -2865,11 +2879,11 @@
                                         </li>
                                     `).join('')}
                                     ${team2Picks.map(pick => `
-                                        <li class="trade-asset">
-                                            <span class="asset-name">${pick}</span>
+                                        <li class="trade-asset" data-pick-season="${pick.season}" data-pick-round="${pick.round}">
+                                            <span class="asset-name">${pick.desc}</span>
                                             <div class="asset-values">
-                                                <span class="value-label">Type:</span>
-                                                <span class="value-then">Draft Pick</span>
+                                                <span class="value-label">Value:</span>
+                                                <span class="value-then">Loading...</span>
                                             </div>
                                         </li>
                                     `).join('')}
@@ -2905,15 +2919,75 @@
                 const fcResponse = await fetch('https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=12&ppr=1');
                 const fcData = await fcResponse.json();
                 
-                console.log('FantasyCalc player data loaded:', fcData.length, 'players');
+                console.log('FantasyCalc player data loaded:', fcData.length, 'entries');
                 
-                // Fetch FantasyCalc draft pick values
-                console.log('Fetching FantasyCalc draft pick values...');
-                const fcPicksResponse = await fetch('https://api.fantasycalc.com/values/picks?isDynasty=true&numQbs=1&numTeams=12&ppr=1');
-                const fcPicksData = await fcPicksResponse.json();
+                // Check if picks are in the main response
+                const sampleEntries = fcData.slice(0, 5);
+                console.log('Sample FantasyCalc entries to check for picks:', sampleEntries);
                 
-                console.log('FantasyCalc draft picks raw response:', fcPicksData);
-                console.log('First pick entry:', fcPicksData && fcPicksData.length > 0 ? fcPicksData[0] : 'No picks');
+                // Look for entries that might be picks
+                const pickEntries = fcData.filter(item => {
+                    const player = item.player || item;
+                    const name = player.name || '';
+                    return name.includes('Pick') || name.includes('Draft') || name.includes('20');
+                });
+                
+                console.log('Found potential pick entries:', pickEntries.length);
+                if (pickEntries.length > 0) {
+                    console.log('Sample pick entries:', pickEntries.slice(0, 10));
+                }
+                
+                // Try alternative endpoint - maybe it's under a different path
+                let pickValueMap = {};
+                
+                try {
+                    console.log('Trying alternative FantasyCalc endpoint for picks...');
+                    const altResponse = await fetch('https://api.fantasycalc.com/values/draft-picks?isDynasty=true&numQbs=1&numTeams=12&ppr=1');
+                    if (altResponse.ok) {
+                        const altData = await altResponse.json();
+                        console.log('Alternative endpoint response:', altData);
+                    }
+                } catch (e) {
+                    console.log('Alternative endpoint failed:', e.message);
+                }
+                
+                // Check if picks are embedded in the player data with a specific naming convention
+                fcData.forEach(item => {
+                    const player = item.player || item;
+                    const name = player.name || '';
+                    const value = item.value || 0;
+                    
+                    // Check if this is a pick entry (might be like "2025 Early 1st" or "Pick 1.01")
+                    if (name && (name.includes('Pick') || /20\d{2}/.test(name))) {
+                        console.log('Found possible pick in data:', { name, value, fullItem: item });
+                        
+                        // Try to parse year and round
+                        const yearMatch = name.match(/20(\d{2})/);
+                        const roundMatch = name.match(/(\d+)(?:st|nd|rd|th)/i);
+                        
+                        if (yearMatch && roundMatch) {
+                            const year = `20${yearMatch[1]}`;
+                            const round = roundMatch[1];
+                            const key = `${year}_${round}`;
+                            pickValueMap[key] = value;
+                        }
+                    }
+                });
+                
+                console.log('Pick value map from FC data:', pickValueMap);
+                console.log('Pick value map size:', Object.keys(pickValueMap).length);
+                
+                // If no picks found, use estimates
+                if (Object.keys(pickValueMap).length === 0) {
+                    console.log('No picks found in FantasyCalc data, using estimates');
+                    pickValueMap = {
+                        '2025_1': 4200, '2025_2': 1800, '2025_3': 800, '2025_4': 400, '2025_5': 200,
+                        '2026_1': 3800, '2026_2': 1600, '2026_3': 700, '2026_4': 350, '2026_5': 175,
+                        '2027_1': 3400, '2027_2': 1400, '2027_3': 600, '2027_4': 300, '2027_5': 150,
+                        '2028_1': 3000, '2028_2': 1200, '2028_3': 500, '2028_4': 250, '2028_5': 125,
+                        '2029_1': 2600, '2029_2': 1000, '2029_3': 400, '2029_4': 200, '2029_5': 100,
+                    };
+                }
                 
                 // Create a map of Sleeper IDs to player values
                 const sleeperIdMap = {};
@@ -2929,26 +3003,7 @@
                     });
                 }
                 
-                // Create a map for draft pick values (year + round)
-                const pickValueMap = {};
-                
-                if (fcPicksData && Array.isArray(fcPicksData)) {
-                    fcPicksData.forEach(pick => {
-                        // Structure might be: {year: 2025, round: 1, value: 5000}
-                        const year = pick.year || pick.season;
-                        const round = pick.round;
-                        const value = pick.value || 0;
-                        
-                        if (year && round) {
-                            const key = `${year}_${round}`;
-                            pickValueMap[key] = value;
-                        }
-                    });
-                }
-                
                 console.log('FantasyCalc Sleeper ID map created with', Object.keys(sleeperIdMap).length, 'players');
-                console.log('FantasyCalc pick value map created with', Object.keys(pickValueMap).length, 'picks');
-                console.log('Sample pick values:', Object.keys(pickValueMap).slice(0, 10));
                 
                 // Update player elements
                 let matchedById = 0;
@@ -2962,18 +3017,14 @@
                         const playerName = `${player.first_name} ${player.last_name}`;
                         el.textContent = playerName;
                         
-                        // Try to find FantasyCalc value by Sleeper ID
                         let fcValue = sleeperIdMap[playerId];
                         
                         if (fcValue) {
                             matchedById++;
-                            console.log(`Matched ${playerName} by ID (${playerId}): ${fcValue}`);
                         } else {
                             notMatched++;
-                            console.log(`No match for ${playerName} (${playerId})`);
                         }
                         
-                        // Update the value display
                         const valueContainer = el.closest('.trade-asset').querySelector('.asset-values');
                         if (fcValue && fcValue > 0) {
                             valueContainer.innerHTML = `
@@ -2992,35 +3043,31 @@
                     }
                 });
                 
-                // Update draft pick values
+                // Update draft pick values using data attributes
                 let pickMatches = 0;
                 let pickMisses = 0;
                 
-                document.querySelectorAll('.trade-asset').forEach(assetEl => {
-                    const assetName = assetEl.querySelector('.asset-name');
-                    const assetText = assetName.textContent;
+                document.querySelectorAll('[data-pick-season]').forEach(assetEl => {
+                    const year = assetEl.getAttribute('data-pick-season');
+                    const round = assetEl.getAttribute('data-pick-round');
+                    const key = `${year}_${round}`;
                     
-                    // Check if it's a draft pick (format: "2025 Rd 1")
-                    const pickMatch = assetText.match(/(\d{4})\s+Rd\s+(\d+)/);
-                    if (pickMatch) {
-                        const year = pickMatch[1];
-                        const round = pickMatch[2];
-                        const key = `${year}_${round}`;
-                        
-                        const pickValue = pickValueMap[key];
-                        
-                        const valueContainer = assetEl.querySelector('.asset-values');
-                        if (pickValue && pickValue > 0) {
-                            pickMatches++;
-                            console.log(`Matched pick ${assetText}: ${pickValue}`);
-                            valueContainer.innerHTML = `
-                                <span class="value-label">Value:</span>
-                                <span class="value-now">${pickValue.toFixed(0)}</span>
-                            `;
-                        } else {
-                            pickMisses++;
-                            console.log(`No value for pick ${assetText} (key: ${key})`);
-                        }
+                    const pickValue = pickValueMap[key];
+                    
+                    const valueContainer = assetEl.querySelector('.asset-values');
+                    if (pickValue && pickValue > 0) {
+                        pickMatches++;
+                        const label = Object.keys(pickValueMap).length > 50 ? 'Value:' : 'Est. Value:';
+                        valueContainer.innerHTML = `
+                            <span class="value-label">${label}</span>
+                            <span class="value-now">${pickValue.toFixed(0)}</span>
+                        `;
+                    } else {
+                        pickMisses++;
+                        valueContainer.innerHTML = `
+                            <span class="value-label">Value:</span>
+                            <span class="value-then">N/A</span>
+                        `;
                     }
                 });
                 
@@ -3030,7 +3077,6 @@
             } catch (error) {
                 console.error('Error loading player values:', error);
                 
-                // Fallback: just load player names without values
                 try {
                     const response = await fetch('https://api.sleeper.app/v1/players/nfl');
                     const allPlayers = await response.json();
