@@ -746,6 +746,8 @@
             }
             return null;
         }
+
+        async function fetchAllMatchups(leagueId, totalWeeks) {
             const allMatchups = [];
             for (let week = 1; week <= totalWeeks; week++) {
                 try {
