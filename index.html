@@ -2671,9 +2671,21 @@
         // Fetch Sleeper transactions
         async function fetchSleeperTransactions(leagueId) {
             try {
-                const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/transactions/1`);
-                if (!response.ok) throw new Error('Failed to fetch transactions');
-                return response.json();
+                // Sleeper API requires fetching week by week
+                // NFL regular season is 18 weeks, but trades can happen in offseason too
+                // Fetch weeks 1-18 to cover the full season
+                const allTransactions = [];
+                
+                for (let week = 1; week <= 18; week++) {
+                    const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/transactions/${week}`);
+                    if (response.ok) {
+                        const weekTransactions = await response.json();
+                        allTransactions.push(...weekTransactions);
+                    }
+                }
+                
+                console.log(`Fetched ${allTransactions.length} total transactions for league ${leagueId}`);
+                return allTransactions;
             } catch (error) {
                 console.error('Error fetching transactions:', error);
                 return [];
