@@ -2962,6 +2962,16 @@
                 
                 console.log(`Trade ${index} teams: ${team1} (roster ${roster1}) vs ${team2} (roster ${roster2})`);
                 
+                // Debug specific trade
+                if ((team1.includes('akent47') && team2.includes('MtnDewds')) || 
+                    (team1.includes('MtnDewds') && team2.includes('akent47'))) {
+                    console.log('🔍 FOUND AKENT47/MTNDEWDS TRADE - DETAILED DEBUG:');
+                    console.log('  Full trade object:', trade);
+                    console.log('  Consenter IDs:', trade.consenter_ids);
+                    console.log('  Adds object:', trade.adds);
+                    console.log('  Draft picks:', trade.draft_picks);
+                }
+                
                 // Get players each team received
                 const team1Adds = [];
                 const team2Adds = [];
@@ -3011,40 +3021,26 @@
                             console.log(`    ✓ Unassigned pick: ${pickDesc}`);
                         }
                         
-                        // roster_id is who receives the pick IN THE FUTURE
-                        // But if it doesn't match either team in THIS trade, the pick is going to someone else later
-                        // In that case, we need to figure out who in THIS trade is giving it away
+                        // owner_id shows who owns the pick AFTER THIS TRADE
+                        // roster_id shows who owns it CURRENTLY (after all subsequent trades)
+                        // We want to know who got it in THIS trade, so use owner_id
                         
                         let assignedToTeam = false;
                         
-                        if (pick.roster_id === parseInt(roster1)) {
-                            console.log(`    → Goes to Team 1 (${team1})`);
+                        if (pick.owner_id === parseInt(roster1)) {
+                            console.log(`    → Goes to Team 1 (${team1}) in this trade`);
                             team1Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
                             assignedToTeam = true;
-                        } else if (pick.roster_id === parseInt(roster2)) {
-                            console.log(`    → Goes to Team 2 (${team2})`);
+                        } else if (pick.owner_id === parseInt(roster2)) {
+                            console.log(`    → Goes to Team 2 (${team2}) in this trade`);
                             team2Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
                             assignedToTeam = true;
                         }
                         
-                        // If pick doesn't go to either team, it means one team is trading it to a third party
-                        // The team that HAD it is indicated by previous_owner_id
+                        // If pick doesn't go to either team in this trade, skip it
+                        // (This shouldn't happen in a valid 2-team trade)
                         if (!assignedToTeam) {
-                            console.log(`    ⚠️ Pick goes to roster ${pick.roster_id}, not involved in this trade`);
-                            console.log(`    → Checking who's giving it away: previous_owner was roster ${pick.previous_owner_id}`);
-                            
-                            // The team LOSING the pick is the one who had it before (previous_owner_id)
-                            // They're trading it away to someone (roster_id)
-                            // So the OTHER team in THIS trade gets it
-                            if (pick.previous_owner_id === parseInt(roster1)) {
-                                console.log(`    → Team 1 is giving it away, so Team 2 gets it in this trade`);
-                                team2Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
-                            } else if (pick.previous_owner_id === parseInt(roster2)) {
-                                console.log(`    → Team 2 is giving it away, so Team 1 gets it in this trade`);
-                                team1Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
-                            } else {
-                                console.log(`    ⚠️ ERROR: Cannot determine pick flow - previous_owner ${pick.previous_owner_id} not in trade`);
-                            }
+                            console.log(`    ⚠️ Pick owner_id ${pick.owner_id} doesn't match either team - skipping`);
                         }
                     });
                 }
