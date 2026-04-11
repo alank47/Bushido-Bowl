@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynasty League Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0e1a;
+            --bg-secondary: #131829;
+            --bg-card: #1a1f35;
+            --accent-gold: #ffd700;
+            --accent-orange: #ff6b35;
+            --accent-green: #00ff88;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a8c0;
+            --border-color: #2a3150;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(255, 107, 53, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 255, 136, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(255, 215, 0, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 60px 20px 40px;
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Bebas Neue', cursive;
+            font-size: clamp(3rem, 8vw, 7rem);
+            letter-spacing: 8px;
+            background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-orange) 50%, var(--accent-green) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
+            }
+            to {
+                filter: drop-shadow(0 0 40px rgba(255, 107, 53, 0.5));
+            }
+        }
+
+        .subtitle {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        /* Login Section */
+        .login-section {
+            max-width: 500px;
+            margin: 40px auto;
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-orange), var(--accent-green));
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-gold);
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px 20px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-orange);
+            box-shadow: 0 0 20px rgba(255, 107, 53, 0.3);
+        }
+
+        button {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-gold));
+            border: none;
+            border-radius: 8px;
+            color: var(--bg-dark);
+            font-family: 'Bebas Neue', cursive;
+            font-size: 1.5rem;
+            letter-spacing: 3px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(255, 107, 53, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Dashboard */
+        .dashboard {
+            display: none;
+            animation: fadeIn 0.6s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .welcome {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .logout-btn {
+            width: auto;
+            padding: 12px 30px;
+            font-size: 1rem;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .logout-btn:hover {
+            border-color: var(--accent-orange);
+            background: var(--bg-card);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--accent-orange);
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(255, 107, 53, 0.3);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-orange));
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 3.5rem;
+            color: var(--accent-gold);
+            line-height: 1;
+            letter-spacing: 2px;
+        }
+
+        .stat-subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-top: 10px;
+        }
+
+        /* Leaderboard */
+        .leaderboard-section {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .leaderboard-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-orange), var(--accent-green));
+        }
+
+        .section-title {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2.5rem;
+            letter-spacing: 4px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+        }
+
+        .leaderboard-table thead th {
+            text-align: left;
+            padding: 15px 20px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .leaderboard-table tbody tr {
+            background: var(--bg-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .leaderboard-table tbody tr:hover {
+            background: rgba(255, 107, 53, 0.1);
+            transform: scale(1.02);
+        }
+
+        .leaderboard-table tbody td {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .leaderboard-table tbody td:first-child {
+            border-left: 1px solid var(--border-color);
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+
+        .leaderboard-table tbody td:last-child {
+            border-right: 1px solid var(--border-color);
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        .rank {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2rem;
+            color: var(--accent-gold);
+            font-weight: 700;
+        }
+
+        .rank.first {
+            color: var(--accent-gold);
+            font-size: 2.5rem;
+        }
+
+        .rank.second {
+            color: #c0c0c0;
+        }
+
+        .rank.third {
+            color: #cd7f32;
+        }
+
+        .team-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .points {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2rem;
+            color: var(--accent-green);
+            font-weight: 700;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--accent-orange);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(255, 107, 53, 0.2);
+            border: 2px solid var(--accent-orange);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            color: var(--accent-orange);
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 3rem;
+                letter-spacing: 4px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .leaderboard-table {
+                font-size: 0.9rem;
+            }
+
+            .team-name {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Dynasty Dominance</h1>
+            <p class="subtitle">5-Year Championship Tracker</p>
+        </header>
+
+        <!-- Login Section -->
+        <div id="loginSection" class="login-section">
+            <div class="input-group">
+                <label for="username">Sleeper Username</label>
+                <input type="text" id="username" placeholder="Enter your username" />
+            </div>
+            <div class="input-group">
+                <label for="leagueId">League ID</label>
+                <input type="text" id="leagueId" placeholder="Enter league ID" />
+            </div>
+            <button onclick="login()">Enter The Arena</button>
+            <div id="loginError"></div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="dashboard">
+            <div class="dashboard-header">
+                <div class="welcome">Welcome, <span id="userDisplay"></span></div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Prize Pot Value</div>
+                    <div class="stat-value">$<span id="potValue">0</span></div>
+                    <div class="stat-subtitle">3.25% APY • Year <span id="currentYear">1</span> of 5</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Your Dynasty Points</div>
+                    <div class="stat-value"><span id="userPoints">0</span></div>
+                    <div class="stat-subtitle">Wins, playoffs, championships & more</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Your Rank</div>
+                    <div class="stat-value">#<span id="userRank">-</span></div>
+                    <div class="stat-subtitle">Out of <span id="totalTeams">0</span> teams</div>
+                </div>
+            </div>
+
+            <!-- Leaderboard -->
+            <div class="leaderboard-section">
+                <div class="section-title">Dynasty Leaderboard</div>
+                <div id="leaderboardContent">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading leaderboard...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const LEAGUE_START_YEAR = 2025;
+        const POINTS_PER_WIN = 2;
+        const ANNUAL_DEPOSIT = 300;
+        const APY = 0.0325;
+        
+        // Scoring System
+        const SCORING = {
+            highestWeeklyScore: 0.5,
+            regularSeasonWin: 2,
+            playoffBerth: 3,
+            championshipAppearance: 5,
+            titleWin: 8
+        };
+
+        // Calculate current pot value with compound interest
+        function calculatePotValue() {
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            const yearsElapsed = currentYear - LEAGUE_START_YEAR;
+            
+            // Calculate which year of the 5-year cycle we're in
+            const cycleYear = Math.min(yearsElapsed + 1, 5);
+            
+            // Calculate compound interest for each deposit
+            let totalValue = 0;
+            for (let i = 0; i < cycleYear; i++) {
+                const yearsInvested = cycleYear - i;
+                const depositValue = ANNUAL_DEPOSIT * Math.pow(1 + APY, yearsInvested);
+                totalValue += depositValue;
+            }
+            
+            document.getElementById('currentYear').textContent = cycleYear;
+            return totalValue.toFixed(2);
+        }
+
+        // Sleeper API calls
+        async function fetchSleeperUser(username) {
+            const response = await fetch(`https://api.sleeper.app/v1/user/${username}`);
+            if (!response.ok) throw new Error('User not found');
+            return response.json();
+        }
+
+        async function fetchLeagueRosters(leagueId) {
+            const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`);
+            if (!response.ok) throw new Error('League not found');
+            return response.json();
+        }
+
+        async function fetchLeagueUsers(leagueId) {
+            const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`);
+            if (!response.ok) throw new Error('Failed to fetch users');
+            return response.json();
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const leagueId = document.getElementById('leagueId').value.trim();
+            const errorDiv = document.getElementById('loginError');
+            
+            errorDiv.innerHTML = '';
+            
+            if (!username || !leagueId) {
+                errorDiv.innerHTML = '<div class="error">Please enter both username and league ID</div>';
+                return;
+            }
+
+            try {
+                errorDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Authenticating...</p></div>';
+                
+                const user = await fetchSleeperUser(username);
+                const rosters = await fetchLeagueRosters(leagueId);
+                const users = await fetchLeagueUsers(leagueId);
+                
+                // Find user's roster
+                const userRoster = rosters.find(r => r.owner_id === user.user_id);
+                if (!userRoster) {
+                    throw new Error('You are not in this league');
+                }
+                
+                // Store session
+                sessionStorage.setItem('sleeperUser', JSON.stringify(user));
+                sessionStorage.setItem('leagueId', leagueId);
+                sessionStorage.setItem('rosters', JSON.stringify(rosters));
+                sessionStorage.setItem('users', JSON.stringify(users));
+                
+                showDashboard();
+            } catch (error) {
+                errorDiv.innerHTML = `<div class="error">${error.message}</div>`;
+            }
+        }
+
+        function logout() {
+            sessionStorage.clear();
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('leagueId').value = '';
+        }
+
+        function showDashboard() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            
+            const user = JSON.parse(sessionStorage.getItem('sleeperUser'));
+            document.getElementById('userDisplay').textContent = user.display_name || user.username;
+            
+            // Update pot value
+            document.getElementById('potValue').textContent = calculatePotValue();
+            
+            loadLeaderboard();
+        }
+
+        async function fetchLeague(leagueId) {
+            const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`);
+            if (!response.ok) throw new Error('Failed to fetch league info');
+            return response.json();
+        }
+
+        async function fetchAllMatchups(leagueId, totalWeeks) {
+            const allMatchups = [];
+            for (let week = 1; week <= totalWeeks; week++) {
+                try {
+                    const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`);
+                    if (response.ok) {
+                        const weekMatchups = await response.json();
+                        allMatchups.push({ week, matchups: weekMatchups });
+                    }
+                } catch (err) {
+                    console.log(`Could not fetch week ${week}`);
+                }
+            }
+            return allMatchups;
+        }
+
+        async function loadLeaderboard() {
+            const rosters = JSON.parse(sessionStorage.getItem('rosters'));
+            const users = JSON.parse(sessionStorage.getItem('users'));
+            const currentUser = JSON.parse(sessionStorage.getItem('sleeperUser'));
+            const leagueId = sessionStorage.getItem('leagueId');
+            
+            // Show loading
+            document.getElementById('leaderboardContent').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Calculating dynasty points...</p>
+                </div>
+            `;
+            
+            try {
+                // Get league info for playoff details
+                const league = await fetchLeague(leagueId);
+                const playoffTeams = league.settings.playoff_teams || 6;
+                
+                // Fetch all matchups (assuming max 18 weeks for regular season + playoffs)
+                const allMatchups = await fetchAllMatchups(leagueId, 18);
+                
+                // Create user map
+                const userMap = {};
+                users.forEach(u => {
+                    userMap[u.user_id] = u;
+                });
+                
+                // Create roster map
+                const rosterMap = {};
+                rosters.forEach(r => {
+                    rosterMap[r.roster_id] = r;
+                });
+                
+                // Calculate points for each team
+                const leaderboard = rosters.map(roster => {
+                    const user = userMap[roster.owner_id];
+                    let totalPoints = 0;
+                    let breakdown = {
+                        wins: 0,
+                        highScores: 0,
+                        playoffBerths: 0,
+                        championshipAppearances: 0,
+                        titles: 0
+                    };
+                    
+                    // Regular season wins
+                    const wins = roster.settings.wins || 0;
+                    breakdown.wins = wins;
+                    totalPoints += wins * SCORING.regularSeasonWin;
+                    
+                    // Count highest weekly scores
+                    allMatchups.forEach(({ week, matchups }) => {
+                        if (matchups && matchups.length > 0) {
+                            const maxScore = Math.max(...matchups.map(m => m.points || 0));
+                            const rosterMatchup = matchups.find(m => m.roster_id === roster.roster_id);
+                            if (rosterMatchup && rosterMatchup.points === maxScore && maxScore > 0) {
+                                breakdown.highScores++;
+                            }
+                        }
+                    });
+                    totalPoints += breakdown.highScores * SCORING.highestWeeklyScore;
+                    
+                    // Playoff berth (check if in top playoff_teams by wins)
+                    const sortedByWins = [...rosters].sort((a, b) => {
+                        const winsA = a.settings.wins || 0;
+                        const winsB = b.settings.wins || 0;
+                        if (winsB !== winsA) return winsB - winsA;
+                        // Tiebreaker: points for
+                        return (b.settings.fpts || 0) - (a.settings.fpts || 0);
+                    });
+                    const playoffPosition = sortedByWins.findIndex(r => r.roster_id === roster.roster_id);
+                    if (playoffPosition < playoffTeams && (roster.settings.wins || 0) > 0) {
+                        breakdown.playoffBerths = 1;
+                        totalPoints += SCORING.playoffBerth;
+                    }
+                    
+                    // Championship appearance & title
+                    // Check metadata for championship status (Sleeper stores this differently)
+                    // For now, we'll use simple logic: 2nd place = championship appearance, 1st = title
+                    if (league.previous_league_id) {
+                        // This is not first year - would need to fetch previous league data
+                        // For current season, check if playoffs are complete
+                    }
+                    
+                    // Current season championship (if season is complete)
+                    const finalRanking = roster.settings.rank || 0;
+                    if (finalRanking === 1) {
+                        breakdown.titles = 1;
+                        breakdown.championshipAppearances = 1;
+                        totalPoints += SCORING.titleWin + SCORING.championshipAppearance;
+                    } else if (finalRanking === 2) {
+                        breakdown.championshipAppearances = 1;
+                        totalPoints += SCORING.championshipAppearance;
+                    }
+                    
+                    return {
+                        userId: roster.owner_id,
+                        rosterId: roster.roster_id,
+                        teamName: user?.metadata?.team_name || user?.display_name || 'Unknown Team',
+                        displayName: user?.display_name || user?.username || 'Unknown',
+                        points: totalPoints,
+                        breakdown: breakdown
+                    };
+                });
+                
+                // Sort by points
+                leaderboard.sort((a, b) => b.points - a.points);
+                
+                // Update user stats
+                const userEntry = leaderboard.find(entry => entry.userId === currentUser.user_id);
+                if (userEntry) {
+                    document.getElementById('userPoints').textContent = userEntry.points.toFixed(1);
+                    const userRank = leaderboard.indexOf(userEntry) + 1;
+                    document.getElementById('userRank').textContent = userRank;
+                }
+                
+                document.getElementById('totalTeams').textContent = leaderboard.length;
+                
+                // Render leaderboard table
+                let tableHTML = `
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Team</th>
+                                <th>Points</th>
+                                <th>Breakdown</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                leaderboard.forEach((entry, index) => {
+                    const rank = index + 1;
+                    let rankClass = '';
+                    if (rank === 1) rankClass = 'first';
+                    else if (rank === 2) rankClass = 'second';
+                    else if (rank === 3) rankClass = 'third';
+                    
+                    const isCurrentUser = entry.userId === currentUser.user_id;
+                    const highlightClass = isCurrentUser ? 'style="background: rgba(255, 215, 0, 0.1);"' : '';
+                    
+                    // Build breakdown tooltip
+                    const b = entry.breakdown;
+                    let breakdownParts = [];
+                    if (b.wins > 0) breakdownParts.push(`${b.wins}W`);
+                    if (b.highScores > 0) breakdownParts.push(`${b.highScores}HS`);
+                    if (b.playoffBerths > 0) breakdownParts.push(`PB`);
+                    if (b.championshipAppearances > 0) breakdownParts.push(`CA`);
+                    if (b.titles > 0) breakdownParts.push(`🏆`);
+                    const breakdownText = breakdownParts.join(' • ') || 'No stats yet';
+                    
+                    tableHTML += `
+                        <tr ${highlightClass}>
+                            <td><span class="rank ${rankClass}">${rank}</span></td>
+                            <td><span class="team-name">${entry.teamName}</span></td>
+                            <td><span class="points">${entry.points.toFixed(1)}</span></td>
+                            <td style="font-size: 0.9rem; color: var(--text-secondary);">${breakdownText}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableHTML += `
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 30px; padding: 20px; background: var(--bg-secondary); border-radius: 8px; font-size: 0.85rem; color: var(--text-secondary);">
+                        <strong style="color: var(--accent-gold);">Scoring Legend:</strong><br>
+                        W = Wins (2 pts each) • HS = Highest Weekly Score (0.5 pts each) • PB = Playoff Berth (3 pts) • CA = Championship Appearance (5 pts) • 🏆 = Title Win (8 pts)
+                    </div>
+                `;
+                
+                document.getElementById('leaderboardContent').innerHTML = tableHTML;
+                
+            } catch (error) {
+                console.error('Error loading leaderboard:', error);
+                document.getElementById('leaderboardContent').innerHTML = `
+                    <div class="error">Failed to load leaderboard: ${error.message}</div>
+                `;
+            }
+        }
+
+        // Check for existing session on load
+        window.onload = function() {
+            if (sessionStorage.getItem('sleeperUser')) {
+                showDashboard();
+            }
+        };
+    </script>
+</body>
+</html>
