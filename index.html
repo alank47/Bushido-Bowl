@@ -1593,8 +1593,8 @@
     </div>
 
     <script>
-        // Dynasty Tracker v2.1 - Build 2026-04-11
-        console.log('Dynasty Tracker v2.1 initialized');
+        // Dynasty Tracker v2.2 - Build 2026-04-11
+        console.log('Dynasty Tracker v2.2 initialized - Future pick values, trade totals, fairness analysis');
         
         // Default Configuration
         const DEFAULT_SETTINGS = {
@@ -3219,6 +3219,49 @@
                 
                 console.log('Pick value map from FC data:', pickValueMap);
                 console.log('Pick value map size:', Object.keys(pickValueMap).length);
+                
+                // Add estimated values for future years based on time value
+                // In dynasty, NEXT year's picks are typically more valuable than CURRENT year
+                // because they represent an extra year of evaluation and the unknown draft class
+                // 2027 picks ~5-10% MORE valuable than 2026
+                // 2028 picks ~same as 2026  
+                // 2029+ picks start to depreciate
+                const currentYear = new Date().getFullYear();
+                const futureYears = [2027, 2028, 2029, 2030];
+                
+                futureYears.forEach(year => {
+                    const yearsOut = year - 2026; // How many years past 2026
+                    let multiplier;
+                    
+                    if (yearsOut === 1) {
+                        // 2027: Peak value, +5% premium over 2026
+                        multiplier = 1.05;
+                    } else if (yearsOut === 2) {
+                        // 2028: Similar to 2026
+                        multiplier = 1.00;
+                    } else if (yearsOut === 3) {
+                        // 2029: Slight depreciation, -10%
+                        multiplier = 0.90;
+                    } else {
+                        // 2030+: More depreciation, -20%
+                        multiplier = 0.80;
+                    }
+                    
+                    // For each round in 2026, create adjusted value for this future year
+                    for (let round = 1; round <= 5; round++) {
+                        const baseKey = `2026_${round}`;
+                        const baseValue = pickValueMap[baseKey];
+                        
+                        if (baseValue) {
+                            const futureKey = `${year}_${round}`;
+                            const futureValue = Math.round(baseValue * multiplier);
+                            pickValueMap[futureKey] = futureValue;
+                            console.log(`${year} Round ${round}: ${futureValue} (${(multiplier * 100).toFixed(0)}% of 2026 value)`);
+                        }
+                    }
+                });
+                
+                console.log('Pick value map with future estimates:', Object.keys(pickValueMap).length, 'total entries');
                 
                 // If no picks found, use estimates
                 if (Object.keys(pickValueMap).length === 0) {
