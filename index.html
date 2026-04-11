@@ -2894,28 +2894,65 @@
         async function loadPlayerNames() {
             try {
                 // Fetch Sleeper player data
+                console.log('Fetching Sleeper player data...');
                 const sleeperResponse = await fetch('https://api.sleeper.app/v1/players/nfl');
                 const allPlayers = await sleeperResponse.json();
+                console.log('Sleeper players loaded');
                 
                 // Fetch FantasyCalc values
                 console.log('Fetching FantasyCalc values...');
                 const fcResponse = await fetch('https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=12&ppr=1');
                 const fcData = await fcResponse.json();
                 
-                console.log('FantasyCalc data loaded:', fcData);
+                console.log('FantasyCalc raw response:', fcData);
+                console.log('FantasyCalc response type:', typeof fcData);
+                console.log('FantasyCalc is array?', Array.isArray(fcData));
+                
+                // Check the actual structure
+                if (fcData && fcData.length > 0) {
+                    console.log('First FantasyCalc entry:', fcData[0]);
+                    console.log('Sample player structure:', JSON.stringify(fcData[0], null, 2));
+                }
                 
                 // Create a map of player name to value
                 const fcValueMap = {};
+                const sleeperIdMap = {}; // Map Sleeper IDs to values
+                
                 if (fcData && Array.isArray(fcData)) {
-                    fcData.forEach(player => {
-                        const fullName = `${player.player.firstName} ${player.player.lastName}`.toLowerCase();
-                        fcValueMap[fullName] = player.value;
+                    fcData.forEach(item => {
+                        // Try different possible structures
+                        const player = item.player || item;
+                        const value = item.value || 0;
+                        
+                        if (player) {
+                            // Try full name
+                            const firstName = player.firstName || player.first_name || '';
+                            const lastName = player.lastName || player.last_name || '';
+                            const fullName = `${firstName} ${lastName}`.toLowerCase().trim();
+                            
+                            if (fullName && fullName !== '') {
+                                fcValueMap[fullName] = value;
+                            }
+                            
+                            // Also try Sleeper ID if available
+                            const sleeperId = player.sleeperId || player.sleeper_id || player.id;
+                            if (sleeperId) {
+                                sleeperIdMap[sleeperId] = value;
+                            }
+                        }
                     });
                 }
                 
-                console.log('FantasyCalc value map created with', Object.keys(fcValueMap).length, 'players');
+                console.log('FantasyCalc value map created with', Object.keys(fcValueMap).length, 'players by name');
+                console.log('FantasyCalc Sleeper ID map created with', Object.keys(sleeperIdMap).length, 'players by ID');
+                console.log('Sample name entries:', Object.keys(fcValueMap).slice(0, 10));
+                console.log('Sample ID entries:', Object.keys(sleeperIdMap).slice(0, 10));
                 
                 // Update each player element
+                let matchedByName = 0;
+                let matchedById = 0;
+                let notMatched = 0;
+                
                 document.querySelectorAll('[data-player-id]').forEach(el => {
                     const playerId = el.getAttribute('data-player-id');
                     const player = allPlayers[playerId];
@@ -2924,13 +2961,29 @@
                         const playerName = `${player.first_name} ${player.last_name}`;
                         el.textContent = playerName;
                         
-                        // Try to find FantasyCalc value
-                        const fullNameLower = playerName.toLowerCase();
-                        const fcValue = fcValueMap[fullNameLower];
+                        // Try to find FantasyCalc value by Sleeper ID first
+                        let fcValue = sleeperIdMap[playerId];
+                        
+                        if (fcValue) {
+                            matchedById++;
+                            console.log(`Matched ${playerName} by ID (${playerId}): ${fcValue}`);
+                        } else {
+                            // Try by name
+                            const fullNameLower = playerName.toLowerCase();
+                            fcValue = fcValueMap[fullNameLower];
+                            
+                            if (fcValue) {
+                                matchedByName++;
+                                console.log(`Matched ${playerName} by name: ${fcValue}`);
+                            } else {
+                                notMatched++;
+                                console.log(`No match for ${playerName} (${playerId})`);
+                            }
+                        }
                         
                         // Update the value display
                         const valueContainer = el.closest('.trade-asset').querySelector('.asset-values');
-                        if (fcValue) {
+                        if (fcValue && fcValue > 0) {
                             valueContainer.innerHTML = `
                                 <span class="value-label">Value:</span>
                                 <span class="value-now">${fcValue.toFixed(0)}</span>
@@ -2943,11 +2996,14 @@
                         }
                     } else {
                         el.textContent = `Player ${playerId}`;
+                        notMatched++;
                     }
                 });
                 
+                console.log(`Player matching stats: ${matchedById} by ID, ${matchedByName} by name, ${notMatched} not matched`);
+                
             } catch (error) {
-                console.error('Error loading player names:', error);
+                console.error('Error loading player values:', error);
                 
                 // Fallback: just load player names without values
                 try {
