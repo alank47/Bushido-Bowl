@@ -2802,14 +2802,23 @@
                 const team2Picks = [];
                 
                 if (trade.draft_picks) {
-                    console.log(`Trade ${index} draft picks:`, trade.draft_picks);
-                    trade.draft_picks.forEach(pick => {
+                    console.log(`Trade ${index} draft picks FULL DATA:`, JSON.stringify(trade.draft_picks, null, 2));
+                    trade.draft_picks.forEach((pick, pickIdx) => {
+                        console.log(`  Pick ${pickIdx}:`, pick);
+                        console.log(`    - season: ${pick.season}`);
+                        console.log(`    - round: ${pick.round}`);
+                        console.log(`    - draft_slot: ${pick.draft_slot}`);
+                        console.log(`    - roster_id: ${pick.roster_id}`);
+                        console.log(`    - owner_id: ${pick.owner_id}`);
+                        console.log(`    - previous_owner_id: ${pick.previous_owner_id}`);
+                        
                         // Check if pick has draft_slot (order is assigned)
                         let pickDesc;
                         if (pick.draft_slot) {
                             // Pick order is assigned - show as "2026 1.01"
                             const pickNum = pick.draft_slot.toString().padStart(2, '0');
                             pickDesc = `${pick.season} ${pick.round}.${pickNum}`;
+                            console.log(`    ✓ Assigned pick: ${pickDesc}`);
                         } else {
                             // Pick order not assigned yet - show team if available
                             if (pick.owner_id && trade.rosterToUser[pick.owner_id]) {
@@ -2817,13 +2826,18 @@
                             } else {
                                 pickDesc = `${pick.season} Rd ${pick.round}`;
                             }
+                            console.log(`    ✓ Unassigned pick: ${pickDesc}`);
                         }
                         
                         // roster_id is who receives the pick
                         if (pick.roster_id === parseInt(roster1)) {
+                            console.log(`    → Goes to Team 1 (${team1})`);
                             team1Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
                         } else if (pick.roster_id === parseInt(roster2)) {
+                            console.log(`    → Goes to Team 2 (${team2})`);
                             team2Picks.push({ desc: pickDesc, season: pick.season, round: pick.round, slot: pick.draft_slot });
+                        } else {
+                            console.log(`    ⚠️ ERROR: roster_id ${pick.roster_id} doesn't match roster1 ${roster1} or roster2 ${roster2}`);
                         }
                     });
                 }
