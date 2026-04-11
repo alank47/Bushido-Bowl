@@ -2761,10 +2761,11 @@
                     day: 'numeric'
                 });
                 
-                // Get roster IDs involved in the trade
-                const rosterIds = trade.roster_ids ? Object.keys(trade.roster_ids) : [];
+                // Get the actual roster IDs from consenter_ids (not roster_ids keys)
+                const rosterIds = trade.consenter_ids || [];
                 
-                console.log(`Trade ${index} roster IDs:`, rosterIds);
+                console.log(`Trade ${index} consenter_ids (actual roster IDs):`, rosterIds);
+                console.log(`Trade ${index} roster_ids object:`, trade.roster_ids);
                 console.log(`Trade ${index} roster to user map:`, trade.rosterToUser);
                 
                 if (rosterIds.length !== 2) {
@@ -2774,10 +2775,10 @@
                 
                 const roster1 = rosterIds[0];
                 const roster2 = rosterIds[1];
-                const team1 = trade.rosterToUser[roster1] || `Team ${roster1}`;
-                const team2 = trade.rosterToUser[roster2] || `Team ${roster2}`;
+                const team1 = trade.rosterToUser[roster1] || `Roster ${roster1}`;
+                const team2 = trade.rosterToUser[roster2] || `Roster ${roster2}`;
                 
-                console.log(`Trade ${index} teams: ${team1} vs ${team2}`);
+                console.log(`Trade ${index} teams: ${team1} (roster ${roster1}) vs ${team2} (roster ${roster2})`);
                 
                 // Get players each team received
                 const team1Adds = [];
@@ -2899,57 +2900,57 @@
                 const allPlayers = await sleeperResponse.json();
                 console.log('Sleeper players loaded');
                 
-                // Fetch FantasyCalc values
-                console.log('Fetching FantasyCalc values...');
+                // Fetch FantasyCalc player values
+                console.log('Fetching FantasyCalc player values...');
                 const fcResponse = await fetch('https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=12&ppr=1');
                 const fcData = await fcResponse.json();
                 
-                console.log('FantasyCalc raw response:', fcData);
-                console.log('FantasyCalc response type:', typeof fcData);
-                console.log('FantasyCalc is array?', Array.isArray(fcData));
+                console.log('FantasyCalc player data loaded:', fcData.length, 'players');
                 
-                // Check the actual structure
-                if (fcData && fcData.length > 0) {
-                    console.log('First FantasyCalc entry:', fcData[0]);
-                    console.log('Sample player structure:', JSON.stringify(fcData[0], null, 2));
-                }
+                // Fetch FantasyCalc draft pick values
+                console.log('Fetching FantasyCalc draft pick values...');
+                const fcPicksResponse = await fetch('https://api.fantasycalc.com/values/picks?isDynasty=true&numQbs=1&numTeams=12&ppr=1');
+                const fcPicksData = await fcPicksResponse.json();
                 
-                // Create a map of player name to value
-                const fcValueMap = {};
-                const sleeperIdMap = {}; // Map Sleeper IDs to values
+                console.log('FantasyCalc draft picks raw response:', fcPicksData);
+                console.log('First pick entry:', fcPicksData && fcPicksData.length > 0 ? fcPicksData[0] : 'No picks');
+                
+                // Create a map of Sleeper IDs to player values
+                const sleeperIdMap = {};
                 
                 if (fcData && Array.isArray(fcData)) {
                     fcData.forEach(item => {
-                        // Try different possible structures
                         const player = item.player || item;
                         const value = item.value || 0;
-                        
-                        if (player) {
-                            // Try full name
-                            const firstName = player.firstName || player.first_name || '';
-                            const lastName = player.lastName || player.last_name || '';
-                            const fullName = `${firstName} ${lastName}`.toLowerCase().trim();
-                            
-                            if (fullName && fullName !== '') {
-                                fcValueMap[fullName] = value;
-                            }
-                            
-                            // Also try Sleeper ID if available
-                            const sleeperId = player.sleeperId || player.sleeper_id || player.id;
-                            if (sleeperId) {
-                                sleeperIdMap[sleeperId] = value;
-                            }
+                        const sleeperId = player.sleeperId || player.sleeper_id || player.id;
+                        if (sleeperId) {
+                            sleeperIdMap[sleeperId] = value;
                         }
                     });
                 }
                 
-                console.log('FantasyCalc value map created with', Object.keys(fcValueMap).length, 'players by name');
-                console.log('FantasyCalc Sleeper ID map created with', Object.keys(sleeperIdMap).length, 'players by ID');
-                console.log('Sample name entries:', Object.keys(fcValueMap).slice(0, 10));
-                console.log('Sample ID entries:', Object.keys(sleeperIdMap).slice(0, 10));
+                // Create a map for draft pick values (year + round)
+                const pickValueMap = {};
                 
-                // Update each player element
-                let matchedByName = 0;
+                if (fcPicksData && Array.isArray(fcPicksData)) {
+                    fcPicksData.forEach(pick => {
+                        // Structure might be: {year: 2025, round: 1, value: 5000}
+                        const year = pick.year || pick.season;
+                        const round = pick.round;
+                        const value = pick.value || 0;
+                        
+                        if (year && round) {
+                            const key = `${year}_${round}`;
+                            pickValueMap[key] = value;
+                        }
+                    });
+                }
+                
+                console.log('FantasyCalc Sleeper ID map created with', Object.keys(sleeperIdMap).length, 'players');
+                console.log('FantasyCalc pick value map created with', Object.keys(pickValueMap).length, 'picks');
+                console.log('Sample pick values:', Object.keys(pickValueMap).slice(0, 10));
+                
+                // Update player elements
                 let matchedById = 0;
                 let notMatched = 0;
                 
@@ -2961,24 +2962,15 @@
                         const playerName = `${player.first_name} ${player.last_name}`;
                         el.textContent = playerName;
                         
-                        // Try to find FantasyCalc value by Sleeper ID first
+                        // Try to find FantasyCalc value by Sleeper ID
                         let fcValue = sleeperIdMap[playerId];
                         
                         if (fcValue) {
                             matchedById++;
                             console.log(`Matched ${playerName} by ID (${playerId}): ${fcValue}`);
                         } else {
-                            // Try by name
-                            const fullNameLower = playerName.toLowerCase();
-                            fcValue = fcValueMap[fullNameLower];
-                            
-                            if (fcValue) {
-                                matchedByName++;
-                                console.log(`Matched ${playerName} by name: ${fcValue}`);
-                            } else {
-                                notMatched++;
-                                console.log(`No match for ${playerName} (${playerId})`);
-                            }
+                            notMatched++;
+                            console.log(`No match for ${playerName} (${playerId})`);
                         }
                         
                         // Update the value display
@@ -3000,7 +2992,40 @@
                     }
                 });
                 
-                console.log(`Player matching stats: ${matchedById} by ID, ${matchedByName} by name, ${notMatched} not matched`);
+                // Update draft pick values
+                let pickMatches = 0;
+                let pickMisses = 0;
+                
+                document.querySelectorAll('.trade-asset').forEach(assetEl => {
+                    const assetName = assetEl.querySelector('.asset-name');
+                    const assetText = assetName.textContent;
+                    
+                    // Check if it's a draft pick (format: "2025 Rd 1")
+                    const pickMatch = assetText.match(/(\d{4})\s+Rd\s+(\d+)/);
+                    if (pickMatch) {
+                        const year = pickMatch[1];
+                        const round = pickMatch[2];
+                        const key = `${year}_${round}`;
+                        
+                        const pickValue = pickValueMap[key];
+                        
+                        const valueContainer = assetEl.querySelector('.asset-values');
+                        if (pickValue && pickValue > 0) {
+                            pickMatches++;
+                            console.log(`Matched pick ${assetText}: ${pickValue}`);
+                            valueContainer.innerHTML = `
+                                <span class="value-label">Value:</span>
+                                <span class="value-now">${pickValue.toFixed(0)}</span>
+                            `;
+                        } else {
+                            pickMisses++;
+                            console.log(`No value for pick ${assetText} (key: ${key})`);
+                        }
+                    }
+                });
+                
+                console.log(`Player matching stats: ${matchedById} matched, ${notMatched} not matched`);
+                console.log(`Pick matching stats: ${pickMatches} matched, ${pickMisses} not matched`);
                 
             } catch (error) {
                 console.error('Error loading player values:', error);
@@ -3038,8 +3063,9 @@
                 const allPlayers = await response.json();
                 
                 // Get roster IDs from the trade
-                const rosterIds = trade.roster_ids ? Object.keys(trade.roster_ids) : [];
+                const rosterIds = trade.consenter_ids || [];
                 
+                console.log('Analyzing trade with consenter_ids:', rosterIds);
                 if (rosterIds.length < 2) {
                     throw new Error('Invalid trade structure - not enough teams');
                 }
