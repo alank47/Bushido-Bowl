@@ -149,6 +149,20 @@
             box-shadow: 0 0 20px rgba(255, 107, 53, 0.3);
         }
 
+        select {
+            transition: all 0.3s ease;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--accent-orange);
+            box-shadow: 0 0 20px rgba(255, 107, 53, 0.3);
+        }
+
+        select:hover {
+            border-color: var(--accent-gold);
+        }
+
         button {
             width: 100%;
             padding: 18px;
@@ -449,13 +463,20 @@
         <div id="loginSection" class="login-section">
             <div class="input-group">
                 <label for="username">Sleeper Username</label>
-                <input type="text" id="username" placeholder="Enter your username" />
+                <input type="text" id="username" placeholder="Enter your username" onkeypress="if(event.key==='Enter') findLeagues()" />
             </div>
-            <div class="input-group">
-                <label for="leagueId">League ID</label>
-                <input type="text" id="leagueId" placeholder="Enter league ID" />
+            <button onclick="findLeagues()" id="findLeaguesBtn">Find My Leagues</button>
+            
+            <div id="leagueSelection" style="display: none; margin-top: 30px;">
+                <div class="input-group">
+                    <label for="leagueSelect">Select Your Dynasty League</label>
+                    <select id="leagueSelect" style="width: 100%; padding: 15px 20px; background: var(--bg-secondary); border: 2px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-family: 'Rajdhani', sans-serif; font-size: 1.1rem; cursor: pointer;">
+                        <option value="">Choose a league...</option>
+                    </select>
+                </div>
+                <button onclick="login()">Enter The Arena</button>
             </div>
-            <button onclick="login()">Enter The Arena</button>
+            
             <div id="loginError"></div>
         </div>
 
@@ -542,6 +563,12 @@
             return response.json();
         }
 
+        async function fetchUserLeagues(userId, season) {
+            const response = await fetch(`https://api.sleeper.app/v1/user/${userId}/leagues/nfl/${season}`);
+            if (!response.ok) throw new Error('Failed to fetch leagues');
+            return response.json();
+        }
+
         async function fetchLeagueRosters(leagueId) {
             const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`);
             if (!response.ok) throw new Error('League not found');
@@ -554,22 +581,73 @@
             return response.json();
         }
 
-        async function login() {
+        async function findLeagues() {
             const username = document.getElementById('username').value.trim();
-            const leagueId = document.getElementById('leagueId').value.trim();
             const errorDiv = document.getElementById('loginError');
+            const leagueSelection = document.getElementById('leagueSelection');
+            const leagueSelect = document.getElementById('leagueSelect');
+            const findBtn = document.getElementById('findLeaguesBtn');
             
             errorDiv.innerHTML = '';
+            leagueSelection.style.display = 'none';
             
-            if (!username || !leagueId) {
-                errorDiv.innerHTML = '<div class="error">Please enter both username and league ID</div>';
+            if (!username) {
+                errorDiv.innerHTML = '<div class="error">Please enter your Sleeper username</div>';
                 return;
             }
 
             try {
-                errorDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Authenticating...</p></div>';
+                findBtn.disabled = true;
+                findBtn.textContent = 'SEARCHING...';
+                errorDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Finding your leagues...</p></div>';
                 
                 const user = await fetchSleeperUser(username);
+                sessionStorage.setItem('sleeperUser', JSON.stringify(user));
+                
+                // Get current year and fetch leagues
+                const currentYear = new Date().getFullYear();
+                const leagues = await fetchUserLeagues(user.user_id, currentYear);
+                
+                if (!leagues || leagues.length === 0) {
+                    throw new Error('No leagues found for this season');
+                }
+                
+                // Clear and populate league dropdown
+                leagueSelect.innerHTML = '<option value="">Choose a league...</option>';
+                
+                leagues.forEach(league => {
+                    const option = document.createElement('option');
+                    option.value = league.league_id;
+                    option.textContent = `${league.name} (${league.total_rosters} teams)`;
+                    leagueSelect.appendChild(option);
+                });
+                
+                errorDiv.innerHTML = '';
+                leagueSelection.style.display = 'block';
+                
+            } catch (error) {
+                errorDiv.innerHTML = `<div class="error">${error.message}</div>`;
+            } finally {
+                findBtn.disabled = false;
+                findBtn.textContent = 'FIND MY LEAGUES';
+            }
+        }
+
+        async function login() {
+            const leagueId = document.getElementById('leagueSelect').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            errorDiv.innerHTML = '';
+            
+            if (!leagueId) {
+                errorDiv.innerHTML = '<div class="error">Please select a league</div>';
+                return;
+            }
+
+            try {
+                errorDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading dynasty data...</p></div>';
+                
+                const user = JSON.parse(sessionStorage.getItem('sleeperUser'));
                 const rosters = await fetchLeagueRosters(leagueId);
                 const users = await fetchLeagueUsers(leagueId);
                 
@@ -580,7 +658,6 @@
                 }
                 
                 // Store session
-                sessionStorage.setItem('sleeperUser', JSON.stringify(user));
                 sessionStorage.setItem('leagueId', leagueId);
                 sessionStorage.setItem('rosters', JSON.stringify(rosters));
                 sessionStorage.setItem('users', JSON.stringify(users));
@@ -596,7 +673,8 @@
             document.getElementById('loginSection').style.display = 'block';
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('username').value = '';
-            document.getElementById('leagueId').value = '';
+            document.getElementById('leagueSelection').style.display = 'none';
+            document.getElementById('leagueSelect').innerHTML = '<option value="">Choose a league...</option>';
         }
 
         function showDashboard() {
@@ -616,6 +694,33 @@
             const response = await fetch(`https://api.sleeper.app/v1/league/${leagueId}`);
             if (!response.ok) throw new Error('Failed to fetch league info');
             return response.json();
+        }
+
+        async function fetchAllSeasons(currentLeagueId) {
+            const seasons = [];
+            let leagueId = currentLeagueId;
+            
+            // Keep going back until we hit 2025 or there's no previous league
+            while (leagueId) {
+                const league = await fetchLeague(leagueId);
+                const season = parseInt(league.season);
+                
+                seasons.push({
+                    leagueId: leagueId,
+                    season: season,
+                    league: league
+                });
+                
+                // Stop if we've reached 2025 or earlier
+                if (season <= LEAGUE_START_YEAR) {
+                    break;
+                }
+                
+                // Move to previous season
+                leagueId = league.previous_league_id;
+            }
+            
+            return seasons.reverse(); // Return chronologically (2025 first)
         }
 
         async function fetchAllMatchups(leagueId, totalWeeks) {
@@ -644,99 +749,131 @@
             document.getElementById('leaderboardContent').innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>Calculating dynasty points...</p>
+                    <p>Loading all dynasty seasons...</p>
                 </div>
             `;
             
             try {
-                // Get league info for playoff details
-                const league = await fetchLeague(leagueId);
-                const playoffTeams = league.settings.playoff_teams || 6;
+                // Fetch all seasons from 2025 to present
+                const seasons = await fetchAllSeasons(leagueId);
                 
-                // Fetch all matchups (assuming max 18 weeks for regular season + playoffs)
-                const allMatchups = await fetchAllMatchups(leagueId, 18);
-                
-                // Create user map
+                // Create user map from current league
                 const userMap = {};
                 users.forEach(u => {
                     userMap[u.user_id] = u;
                 });
                 
-                // Create roster map
-                const rosterMap = {};
-                rosters.forEach(r => {
-                    rosterMap[r.roster_id] = r;
+                // Track cumulative stats per user across all seasons
+                const userStats = {};
+                
+                // Initialize stats for all current users
+                rosters.forEach(roster => {
+                    const userId = roster.owner_id;
+                    if (!userStats[userId]) {
+                        userStats[userId] = {
+                            wins: 0,
+                            highScores: 0,
+                            playoffBerths: 0,
+                            championshipAppearances: 0,
+                            titles: 0,
+                            totalPoints: 0
+                        };
+                    }
                 });
                 
-                // Calculate points for each team
-                const leaderboard = rosters.map(roster => {
-                    const user = userMap[roster.owner_id];
-                    let totalPoints = 0;
-                    let breakdown = {
-                        wins: 0,
-                        highScores: 0,
-                        playoffBerths: 0,
-                        championshipAppearances: 0,
-                        titles: 0
-                    };
+                // Process each season
+                for (const seasonData of seasons) {
+                    const { leagueId: seasonLeagueId, season, league } = seasonData;
                     
-                    // Regular season wins
-                    const wins = roster.settings.wins || 0;
-                    breakdown.wins = wins;
-                    totalPoints += wins * SCORING.regularSeasonWin;
+                    // Fetch rosters for this season
+                    const seasonRosters = await fetchLeagueRosters(seasonLeagueId);
+                    const playoffTeams = league.settings.playoff_teams || 6;
                     
-                    // Count highest weekly scores
-                    allMatchups.forEach(({ week, matchups }) => {
-                        if (matchups && matchups.length > 0) {
-                            const maxScore = Math.max(...matchups.map(m => m.points || 0));
-                            const rosterMatchup = matchups.find(m => m.roster_id === roster.roster_id);
-                            if (rosterMatchup && rosterMatchup.points === maxScore && maxScore > 0) {
-                                breakdown.highScores++;
+                    // Fetch matchups for this season
+                    const seasonMatchups = await fetchAllMatchups(seasonLeagueId, 18);
+                    
+                    // Create roster map for this season
+                    const rosterMap = {};
+                    seasonRosters.forEach(r => {
+                        rosterMap[r.roster_id] = r;
+                    });
+                    
+                    // Process each roster in this season
+                    seasonRosters.forEach(roster => {
+                        const userId = roster.owner_id;
+                        
+                        // Initialize if new user (may have joined mid-dynasty)
+                        if (!userStats[userId]) {
+                            userStats[userId] = {
+                                wins: 0,
+                                highScores: 0,
+                                playoffBerths: 0,
+                                championshipAppearances: 0,
+                                titles: 0,
+                                totalPoints: 0
+                            };
+                        }
+                        
+                        // Add wins from this season
+                        const wins = roster.settings.wins || 0;
+                        userStats[userId].wins += wins;
+                        
+                        // Count highest weekly scores for this team
+                        seasonMatchups.forEach(({ week, matchups }) => {
+                            if (matchups && matchups.length > 0) {
+                                const maxScore = Math.max(...matchups.map(m => m.points || 0));
+                                const rosterMatchup = matchups.find(m => m.roster_id === roster.roster_id);
+                                if (rosterMatchup && rosterMatchup.points === maxScore && maxScore > 0) {
+                                    userStats[userId].highScores++;
+                                }
                             }
+                        });
+                        
+                        // Check playoff berth
+                        const sortedByWins = [...seasonRosters].sort((a, b) => {
+                            const winsA = a.settings.wins || 0;
+                            const winsB = b.settings.wins || 0;
+                            if (winsB !== winsA) return winsB - winsA;
+                            return (b.settings.fpts || 0) - (a.settings.fpts || 0);
+                        });
+                        const playoffPosition = sortedByWins.findIndex(r => r.roster_id === roster.roster_id);
+                        if (playoffPosition < playoffTeams && wins > 0) {
+                            userStats[userId].playoffBerths++;
+                        }
+                        
+                        // Check championship results
+                        const finalRanking = roster.settings.rank || 0;
+                        if (finalRanking === 1) {
+                            userStats[userId].titles++;
+                            userStats[userId].championshipAppearances++;
+                        } else if (finalRanking === 2) {
+                            userStats[userId].championshipAppearances++;
                         }
                     });
-                    totalPoints += breakdown.highScores * SCORING.highestWeeklyScore;
-                    
-                    // Playoff berth (check if in top playoff_teams by wins)
-                    const sortedByWins = [...rosters].sort((a, b) => {
-                        const winsA = a.settings.wins || 0;
-                        const winsB = b.settings.wins || 0;
-                        if (winsB !== winsA) return winsB - winsA;
-                        // Tiebreaker: points for
-                        return (b.settings.fpts || 0) - (a.settings.fpts || 0);
-                    });
-                    const playoffPosition = sortedByWins.findIndex(r => r.roster_id === roster.roster_id);
-                    if (playoffPosition < playoffTeams && (roster.settings.wins || 0) > 0) {
-                        breakdown.playoffBerths = 1;
-                        totalPoints += SCORING.playoffBerth;
-                    }
-                    
-                    // Championship appearance & title
-                    // Check metadata for championship status (Sleeper stores this differently)
-                    // For now, we'll use simple logic: 2nd place = championship appearance, 1st = title
-                    if (league.previous_league_id) {
-                        // This is not first year - would need to fetch previous league data
-                        // For current season, check if playoffs are complete
-                    }
-                    
-                    // Current season championship (if season is complete)
-                    const finalRanking = roster.settings.rank || 0;
-                    if (finalRanking === 1) {
-                        breakdown.titles = 1;
-                        breakdown.championshipAppearances = 1;
-                        totalPoints += SCORING.titleWin + SCORING.championshipAppearance;
-                    } else if (finalRanking === 2) {
-                        breakdown.championshipAppearances = 1;
-                        totalPoints += SCORING.championshipAppearance;
-                    }
+                }
+                
+                // Calculate total points for each user
+                Object.keys(userStats).forEach(userId => {
+                    const stats = userStats[userId];
+                    stats.totalPoints = 
+                        (stats.wins * SCORING.regularSeasonWin) +
+                        (stats.highScores * SCORING.highestWeeklyScore) +
+                        (stats.playoffBerths * SCORING.playoffBerth) +
+                        (stats.championshipAppearances * SCORING.championshipAppearance) +
+                        (stats.titles * SCORING.titleWin);
+                });
+                
+                // Build leaderboard array
+                const leaderboard = Object.keys(userStats).map(userId => {
+                    const user = userMap[userId];
+                    const stats = userStats[userId];
                     
                     return {
-                        userId: roster.owner_id,
-                        rosterId: roster.roster_id,
+                        userId: userId,
                         teamName: user?.metadata?.team_name || user?.display_name || 'Unknown Team',
                         displayName: user?.display_name || user?.username || 'Unknown',
-                        points: totalPoints,
-                        breakdown: breakdown
+                        points: stats.totalPoints,
+                        breakdown: stats
                     };
                 });
                 
@@ -755,6 +892,12 @@
                 
                 // Render leaderboard table
                 let tableHTML = `
+                    <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                        <strong style="color: var(--accent-gold);">Dynasty Stats: ${LEAGUE_START_YEAR} - ${new Date().getFullYear()}</strong>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">
+                            ${seasons.length} season${seasons.length > 1 ? 's' : ''} tracked
+                        </div>
+                    </div>
                     <table class="leaderboard-table">
                         <thead>
                             <tr>
@@ -777,14 +920,14 @@
                     const isCurrentUser = entry.userId === currentUser.user_id;
                     const highlightClass = isCurrentUser ? 'style="background: rgba(255, 215, 0, 0.1);"' : '';
                     
-                    // Build breakdown tooltip
+                    // Build breakdown display
                     const b = entry.breakdown;
                     let breakdownParts = [];
                     if (b.wins > 0) breakdownParts.push(`${b.wins}W`);
                     if (b.highScores > 0) breakdownParts.push(`${b.highScores}HS`);
-                    if (b.playoffBerths > 0) breakdownParts.push(`PB`);
-                    if (b.championshipAppearances > 0) breakdownParts.push(`CA`);
-                    if (b.titles > 0) breakdownParts.push(`🏆`);
+                    if (b.playoffBerths > 0) breakdownParts.push(`${b.playoffBerths}PB`);
+                    if (b.championshipAppearances > 0) breakdownParts.push(`${b.championshipAppearances}CA`);
+                    if (b.titles > 0) breakdownParts.push(`${b.titles}🏆`);
                     const breakdownText = breakdownParts.join(' • ') || 'No stats yet';
                     
                     tableHTML += `
@@ -802,7 +945,7 @@
                     </table>
                     <div style="margin-top: 30px; padding: 20px; background: var(--bg-secondary); border-radius: 8px; font-size: 0.85rem; color: var(--text-secondary);">
                         <strong style="color: var(--accent-gold);">Scoring Legend:</strong><br>
-                        W = Wins (2 pts each) • HS = Highest Weekly Score (0.5 pts each) • PB = Playoff Berth (3 pts) • CA = Championship Appearance (5 pts) • 🏆 = Title Win (8 pts)
+                        W = Wins (${SCORING.regularSeasonWin} pts each) • HS = Highest Weekly Score (${SCORING.highestWeeklyScore} pts each) • PB = Playoff Berth (${SCORING.playoffBerth} pts) • CA = Championship Appearance (${SCORING.championshipAppearance} pts) • 🏆 = Title Win (${SCORING.titleWin} pts)
                     </div>
                 `;
                 
