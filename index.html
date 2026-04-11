@@ -2168,7 +2168,7 @@
             });
 
             allSeasonData.forEach(seasonData => {
-                const { season, rosters, matchups, bracket } = seasonData;
+                const { season, league, rosters, matchups, bracket } = seasonData;
                 
                 // Championship tracking
                 if (bracket && bracket.length > 0) {
@@ -2211,7 +2211,7 @@
                     }
 
                     // Playoff tracking
-                    const playoffTeams = 6;
+                    const playoffTeams = league.settings.playoff_teams || 6;
                     const sortedByWins = [...rosters].sort((a, b) => {
                         const winsA = a.settings.wins || 0;
                         const winsB = b.settings.wins || 0;
@@ -2808,7 +2808,7 @@
                         </div>
                         
                         <button class="analyze-btn" onclick="analyzeTrade(${index})">
-                            🤖 Generate AI Analysis
+                            📊 Generate Trade Analysis
                         </button>
                     </div>
                 `;
@@ -2845,7 +2845,7 @@
             const analyzeBtn = card.querySelector('.analyze-btn');
             
             analyzeBtn.disabled = true;
-            analyzeBtn.textContent = '🤖 Analyzing trade...';
+            analyzeBtn.textContent = '📊 Analyzing trade...';
             
             try {
                 // Get player info
@@ -2925,7 +2925,7 @@
                 
                 const analysisHTML = `
                     <div class="trade-analysis">
-                        <div class="analysis-title">🤖 AI Trade Analysis</div>
+                        <div class="analysis-title">📊 Trade Analysis</div>
                         <div class="analysis-text">${analysis}</div>
                     </div>
                 `;
@@ -2935,53 +2935,64 @@
             } catch (error) {
                 console.error('Error analyzing trade:', error);
                 analyzeBtn.disabled = false;
-                analyzeBtn.textContent = '🤖 Generate AI Analysis (Retry)';
+                analyzeBtn.textContent = '📊 Generate Trade Analysis (Retry)';
                 alert('Failed to analyze trade: ' + error.message);
             }
         }
 
         async function generateTradeAnalysis(team1, team1Players, team2, team2Players, tradeDate) {
-            const prompt = `Analyze this fantasy football dynasty trade:
-
-Trade Date: ${tradeDate}
-
-${team1} received: ${team1Players.join(', ')}
-${team2} received: ${team2Players.join(', ')}
-
-Provide a brief analysis (3-4 sentences) covering:
-1. Who won the trade at the time
-2. How it looks now in hindsight
-3. Key factors that influenced the outcome
-
-Keep it conversational and insightful.`;
-
-            try {
-                const response = await fetch("https://api.anthropic.com/v1/messages", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        model: "claude-sonnet-4-20250514",
-                        max_tokens: 1000,
-                        messages: [
-                            { role: "user", content: prompt }
-                        ],
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (data.content && data.content[0] && data.content[0].text) {
-                    return data.content[0].text;
-                }
-                
-                throw new Error('Invalid response from AI');
-                
-            } catch (error) {
-                console.error('AI analysis error:', error);
-                throw error;
+            // Smart rule-based analysis (no API needed)
+            
+            const tradeDateObj = new Date(tradeDate);
+            const now = new Date();
+            const monthsAgo = Math.floor((now - tradeDateObj) / (1000 * 60 * 60 * 24 * 30));
+            const timeframe = monthsAgo < 3 ? 'recent' : monthsAgo < 12 ? 'several months ago' : 'over a year ago';
+            
+            let analysis = `**Trade Overview (${tradeDate})**\n\n`;
+            
+            // Analyze asset counts
+            const team1Count = team1Players.length;
+            const team2Count = team2Players.length;
+            
+            if (team1Count > team2Count) {
+                analysis += `${team1} acquired ${team1Count} assets (${team1Players.join(', ')}) in exchange for ${team2Count} from ${team2} (${team2Players.join(', ')}). `;
+                analysis += `This was a quality-for-quantity move, with ${team1} getting more pieces. `;
+            } else if (team2Count > team1Count) {
+                analysis += `${team2} acquired ${team2Count} assets (${team2Players.join(', ')}) while sending ${team1Count} to ${team1} (${team1Players.join(', ')}). `;
+                analysis += `${team2} prioritized depth in this deal. `;
+            } else {
+                analysis += `${team1} and ${team2} swapped equal asset counts. ${team1} received ${team1Players.join(', ')} while ${team2} got ${team2Players.join(', ')}. `;
+                analysis += `This was a straight swap targeting team fit and value alignment. `;
             }
+            
+            // Check for draft picks
+            const team1HasPicks = team1Players.some(p => p.includes('Rd') || p.includes('Pick'));
+            const team2HasPicks = team2Players.some(p => p.includes('Rd') || p.includes('Pick'));
+            
+            if (team1HasPicks && !team2HasPicks) {
+                analysis += `${team1} added future draft capital, signaling a potential rebuild or opportunistic asset acquisition. `;
+            } else if (team2HasPicks && !team1HasPicks) {
+                analysis += `${team2} stockpiled picks, possibly positioning for a youth movement or future flexibility. `;
+            } else if (team1HasPicks && team2HasPicks) {
+                analysis += `Both sides exchanged draft picks along with players, making this a complex value proposition. `;
+            }
+            
+            // Timeframe context
+            analysis += `\n\nThis trade happened ${timeframe}. `;
+            
+            if (monthsAgo < 3) {
+                analysis += `It's still early to judge the full impact, but both teams made calculated moves based on their championship windows and roster construction.`;
+            } else if (monthsAgo < 12) {
+                analysis += `We've had ${monthsAgo} months to see how the pieces have performed, providing valuable hindsight on valuation accuracy.`;
+            } else {
+                analysis += `With over a year of perspective, we can now evaluate how injuries, performance trends, and career trajectories have shaped the outcome.`;
+            }
+            
+            analysis += `\n\n📊 **Asset Breakdown:**\n`;
+            analysis += `• ${team1}: ${team1Count} asset${team1Count !== 1 ? 's' : ''}\n`;
+            analysis += `• ${team2}: ${team2Count} asset${team2Count !== 1 ? 's' : ''}`;
+            
+            return analysis;
         }
 
         function showManualTradeForm() {
