@@ -1520,6 +1520,9 @@
     </div>
 
     <script>
+        // Dynasty Tracker v2.1 - Build 2026-04-11
+        console.log('Dynasty Tracker v2.1 initialized');
+        
         // Default Configuration
         const DEFAULT_SETTINGS = {
             regularSeasonWin: 2,
@@ -2736,7 +2739,9 @@
                             }
                         }
                     }
+                }
                 
+                // Now fetch trades for each season
                 for (const seasonData of seasons) {
                     console.log(`Fetching trades for season ${seasonData.season}, league ${seasonData.leagueId}`);
                     
