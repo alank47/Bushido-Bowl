@@ -3516,6 +3516,11 @@
                 const team1 = trade.rosterToUser[roster1] || 'Team 1';
                 const team2 = trade.rosterToUser[roster2] || 'Team 2';
                 
+                console.log('Trade analysis debug:');
+                console.log('  Roster 1:', roster1, '-> Team:', team1);
+                console.log('  Roster 2:', roster2, '-> Team:', team2);
+                console.log('  Full rosterToUser map:', trade.rosterToUser);
+                
                 // Get the trade card's asset lists with their displayed values
                 const team1AssetEls = card.querySelectorAll('[data-team="1"] .trade-asset');
                 const team2AssetEls = card.querySelectorAll('[data-team="2"] .trade-asset');
