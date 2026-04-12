@@ -3641,7 +3641,22 @@ Keep it real, keep it Mike.`;
                     throw new Error(`Backend request failed: ${response.status}`);
                 }
 
-                const data = await response.json();
+                // Pipedream wraps response in HTML, so we need to extract the JSON
+                const responseText = await response.text();
+                
+                // Try to parse as JSON first
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    // If it's HTML-wrapped, extract the JSON from the exports
+                    const match = responseText.match(/\$return_value.*?({[\s\S]*?})\s*$/m);
+                    if (match) {
+                        data = JSON.parse(match[1]);
+                    } else {
+                        throw new Error('Could not parse response from backend');
+                    }
+                }
                 
                 // Extract text from response
                 const analysisText = data.content
