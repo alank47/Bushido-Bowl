@@ -2917,10 +2917,7 @@
                     return;
                 }
                 
-                // Store trades for analysis
-                sessionStorage.setItem('leagueTrades', JSON.stringify(allTrades));
-                
-                // Render trades
+                // Render trades (which will sort them)
                 renderTrades(allTrades);
                 
             } catch (error) {
@@ -2947,6 +2944,9 @@
             
             // Sort by date (most recent first)
             trades.sort((a, b) => b.created - a.created);
+            
+            // Store sorted trades for analysis (must match display order!)
+            sessionStorage.setItem('leagueTrades', JSON.stringify(trades));
             
             let html = `<div class="trades-list">`;
             
