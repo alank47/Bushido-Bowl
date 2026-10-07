@@ -1994,13 +1994,16 @@
                             return (b.settings.fpts || 0) - (a.settings.fpts || 0);
                         });
                         const playoffPosition = sortedByWins.findIndex(r => r.roster_id === roster.roster_id);
-                        if (playoffPosition < playoffTeams && wins > 0) {
+                        // Only award berths once the season is over - mid-season standings aren't final
+                        if (league.status === 'complete' && playoffPosition < playoffTeams && wins > 0) {
                             userStats[userId].playoffBerths++;
                         }
                     });
                     
                     // Check championship results using playoff bracket (once per season, outside the roster loop)
-                    if (winnersBracket && winnersBracket.length > 0) {
+                    if (league.status !== 'complete') {
+                        // Season still in progress - no championship results yet
+                    } else if (winnersBracket && winnersBracket.length > 0) {
                         // Find the championship game (last round)
                         const championshipRound = Math.max(...winnersBracket.map(m => m.r || 0));
                         const championshipGame = winnersBracket.find(m => m.r === championshipRound);
@@ -2256,7 +2259,7 @@
                 const { season, league, rosters, matchups, bracket } = seasonData;
                 
                 // Championship tracking
-                if (bracket && bracket.length > 0) {
+                if (league.status === 'complete' && bracket && bracket.length > 0) {
                     const championshipRound = Math.max(...bracket.map(m => m.r || 0));
                     const championshipGame = bracket.find(m => m.r === championshipRound);
                     
@@ -2305,7 +2308,8 @@
                     });
                     const seed = sortedByWins.findIndex(r => r.roster_id === roster.roster_id) + 1;
                     
-                    if (seed <= playoffTeams && wins > 0) {
+                    // Only count appearances once the season is over - mid-season standings aren't final
+                    if (league.status === 'complete' && seed <= playoffTeams && wins > 0) {
                         stats.playoffStats[userId].appearances++;
                         stats.playoffStats[userId].seeds.push(seed);
                     }
