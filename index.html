@@ -1196,6 +1196,14 @@
             min-width: 220px;
         }
 
+        .war-trade-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
         .war-team {
             display: flex;
             align-items: center;
@@ -3274,6 +3282,8 @@
             playerValuesCache = null;
             warRoomData = null;
             warRoomFetch = null;
+            warSeen = freshSeen(null);
+            warPartner = null;
             requestCache = {};
             potOddsCache = null;
             leaderboardReady = false;
@@ -4951,7 +4961,8 @@
         const starValue = list => list.reduce((s, p) => s + (p.dynasty / 1000) ** STAR_WEIGHT, 0);
         
         // Search 1-for-1, 2-for-1 and 1-for-2 deals that are fair and help both sides the way their windows need
-        function findTrades(data, team, limit = 5) {
+        // seen = { deals, gets }: deals already shown and players already offered as targets (for "New ideas")
+        function findTrades(data, team, limit = 5, seen = null, partnerId = null) {
             const pickPool = t => [...t.roster]
                 .filter(p => (p.dynasty >= 400 || p.now >= 400) && GRADE_POSITIONS.includes(p.position))
                 .sort((a, b) => Math.max(b.dynasty, b.now) - Math.max(a.dynasty, a.now))
@@ -4988,7 +4999,7 @@
             
             const mine = combos(pickPool(team));
             const ideas = [];
-            data.teams.filter(p => p.userId !== team.userId).forEach(partner => {
+            data.teams.filter(p => p.userId !== team.userId && (!partnerId || p.userId === partnerId)).forEach(partner => {
                 const theirs = combos(pickPool(partner));
                 const theirNeeds = needsOf(partner);
                 mine.forEach(give => theirs.forEach(get => {
@@ -5007,18 +5018,30 @@
                 }));
             });
             
-            // Best ideas, no more than two per partner and no player used twice
+            // Best ideas, no more than two per partner and no player used twice.
+            // Deals already shown are skipped; targets already offered only come back if nothing new is left.
+            ideas.forEach(idea => {
+                const ids = list => list.map(p => p.id).sort().join('+');
+                idea.key = `${ids(idea.give)}>${ids(idea.get)}`;
+            });
             ideas.sort((a, b) => b.score - a.score);
+            const fresh = seen ? ideas.filter(i => !seen.deals.has(i.key)) : ideas;
             const picked = [], usedPlayers = new Set(), perPartner = {};
-            for (const idea of ideas) {
-                const ids = [...idea.give, ...idea.get].map(p => p.id);
-                if (ids.some(id => usedPlayers.has(id))) continue;
-                if ((perPartner[idea.partner.userId] || 0) >= 2) continue;
-                picked.push(idea);
-                ids.forEach(id => usedPlayers.add(id));
-                perPartner[idea.partner.userId] = (perPartner[idea.partner.userId] || 0) + 1;
-                if (picked.length === limit) break;
-            }
+            const take = (allowSeenTargets) => {
+                for (const idea of fresh) {
+                    if (picked.length === limit) return;
+                    if (picked.includes(idea)) continue;
+                    if (!allowSeenTargets && seen && idea.get.some(p => seen.gets.has(p.id))) continue;
+                    const ids = [...idea.give, ...idea.get].map(p => p.id);
+                    if (ids.some(id => usedPlayers.has(id))) continue;
+                    if (!partnerId && (perPartner[idea.partner.userId] || 0) >= 2) continue;
+                    picked.push(idea);
+                    ids.forEach(id => usedPlayers.add(id));
+                    perPartner[idea.partner.userId] = (perPartner[idea.partner.userId] || 0) + 1;
+                }
+            };
+            take(false);
+            take(true);
             return picked;
         }
         
@@ -5082,7 +5105,7 @@
                     <div class="war-header">
                         <h2 class="section-title">War Room</h2>
                         <label class="war-picker">Scouting report for
-                            <select id="warTeam" onchange="warRoomTeam = this.value; renderWarRoom()">${options}</select>
+                            <select id="warTeam" onchange="warRoomTeam = this.value; warPartner = null; renderWarRoom()">${options}</select>
                         </label>
                     </div>
                     <div class="war-team">
@@ -5109,21 +5132,74 @@
                 </div>
                 
                 <div class="stat-section">
-                    <h2 class="section-title">Trade Ideas</h2>
+                    <div class="war-header">
+                        <h2 class="section-title">Trade Ideas</h2>
+                        <div class="war-trade-controls">
+                            <label class="war-picker">Trade partner
+                                <select id="warPartner" onchange="warPartner = this.value || null; loadTradeIdeas()">
+                                    <option value="">All teams</option>
+                                    ${[...data.teams].filter(t => t.userId !== team.userId).sort((a, b) => a.name.localeCompare(b.name))
+                                        .map(t => `<option value="${t.userId}" ${t.userId === warPartner ? 'selected' : ''}>${escapeHTML(t.name)}</option>`).join('')}
+                                </select>
+                            </label>
+                            <button type="button" class="live-refresh" id="warNewIdeas" onclick="loadTradeIdeas()" disabled>New ideas</button>
+                        </div>
+                    </div>
                     <div id="warTrades"><div class="loading"><div class="spinner"></div><p>Searching every possible deal and simulating the pot...</p></div></div>
                 </div>
             `;
             
-            // Let the page paint before the search and simulations run
-            setTimeout(async () => {
-                // Simulate a wider shortlist; teams playing for now only see deals that don't cost them pot odds
-                const shortlist = findTrades(data, team, 8);
+            loadTradeIdeas();
+        }
+        
+        // Ideas shown so far for the team being scouted (and partner filter), so "New ideas" can skip them
+        let warSeen = { key: null, deals: new Set(), gets: new Set(), batch: 0 };
+        let warPartner = null;
+        const freshSeen = key => ({ key, deals: new Set(), gets: new Set(), batch: 0 });
+        
+        async function loadTradeIdeas() {
+            const data = warRoomData;
+            const team = data?.teams.find(t => t.userId === warRoomTeam);
+            const target = document.getElementById('warTrades');
+            const button = document.getElementById('warNewIdeas');
+            if (!team || !target) return;
+            const partnerId = warPartner && warPartner !== team.userId ? warPartner : null;
+            const seenKey = `${team.userId}|${partnerId || 'all'}`;
+            if (warSeen.key !== seenKey) warSeen = freshSeen(seenKey);
+            
+            if (button) button.disabled = true;
+            target.innerHTML = '<div class="loading"><div class="spinner"></div><p>Searching every possible deal and simulating the pot...</p></div>';
+            await new Promise(resolve => setTimeout(resolve, 30)); // let the page paint first
+            
+            const fmt = n => Math.round(n).toLocaleString();
+            const keepFor = shortlist => team.window === 'Rebuilder' ? shortlist : shortlist.filter(i => i.potAfter === undefined || i.potAfter >= i.potBefore);
+            let ideas = [], restarted = false;
+            
+            // Keep looking until a batch has something worth showing; start over once every deal has been seen
+            for (let attempt = 0; attempt < 4 && !ideas.length; attempt++) {
+                let shortlist = findTrades(data, team, 8, warSeen, partnerId);
+                if (!shortlist.length && warSeen.deals.size) {
+                    warSeen = freshSeen(seenKey);
+                    restarted = true;
+                    shortlist = findTrades(data, team, 8, warSeen, partnerId);
+                }
+                if (!shortlist.length) break;
                 await tradePotImpact(data, team, shortlist);
-                if (warRoomTeam !== team.userId) return; // a different team was picked meanwhile
-                const ideas = (team.window === 'Rebuilder' ? shortlist : shortlist.filter(i => i.potAfter === undefined || i.potAfter >= i.potBefore)).slice(0, 5);
-                const target = document.getElementById('warTrades');
-                if (target && warRoomTeam === team.userId) target.innerHTML = renderTradeIdeas(data, team, ideas, fmt);
-            }, 30);
+                if (warRoomTeam !== team.userId || (warPartner || null) !== (partnerId || null)) return; // selection changed meanwhile
+                shortlist.forEach(i => warSeen.deals.add(i.key));
+                ideas = keepFor(shortlist).slice(0, 5);
+            }
+            ideas.forEach(i => i.get.forEach(p => warSeen.gets.add(p.id)));
+            warSeen.batch++;
+            
+            const note = restarted
+                ? '<p class="section-note">That was every deal that fits right now, so these start again from the top.</p>'
+                : warSeen.batch > 1 ? `<p class="section-note">Batch ${warSeen.batch}: deals you haven't seen yet.</p>` : '';
+            const partnerName = partnerId ? data.teams.find(t => t.userId === partnerId)?.name : null;
+            target.innerHTML = note + (partnerId && !ideas.length
+                ? `<p class="section-note">No fair deals with ${escapeHTML(partnerName)} help both teams right now. Try another partner.</p>`
+                : renderTradeIdeas(data, team, ideas, fmt));
+            if (button) button.disabled = false;
         }
         
         function gamePlan(data, team) {
