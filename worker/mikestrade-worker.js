@@ -1,6 +1,7 @@
-// Cloudflare Worker for Mike's Trade Tracker™ AI analysis (mikestrade.alank-42a.workers.dev)
+// Cloudflare Worker for Mike's AI write-ups on bushidobowl.org (mikestrade.alank-42a.workers.dev):
+// trade analysis, and the weekly recap (requests with type: 'recap').
 //
-// The site sends only the trade details; this Worker builds the prompt, picks the model,
+// The site sends only the data; this Worker builds the prompt, picks the model,
 // and calls Claude. Requests from anywhere other than the site are rejected, so the
 // endpoint can't be used as a general-purpose Claude proxy on our API key.
 //
@@ -34,11 +35,12 @@ export default {
             return new Response('Method not allowed', { status: 405, headers: cors });
         }
 
-        let trade;
+        let prompt;
         try {
-            trade = parseTrade(await request.json());
+            const body = await request.json();
+            prompt = body?.type === 'recap' ? buildRecapPrompt(parseRecap(body)) : buildPrompt(parseTrade(body));
         } catch (error) {
-            return json({ error: `Invalid trade: ${error.message}` }, 400, cors);
+            return json({ error: `Invalid request: ${error.message}` }, 400, cors);
         }
 
         const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -54,7 +56,7 @@ export default {
                 max_tokens: 4000,
                 output_config: { effort: 'low' },
                 fallbacks: 'default',
-                messages: [{ role: 'user', content: buildPrompt(trade) }],
+                messages: [{ role: 'user', content: prompt }],
             }),
         });
 
@@ -203,6 +205,89 @@ STYLE:
 - Occasionally reference the Mahomes Curse if relevant
 - Sound like a smart guy texting the group chat, not writing an essay
 - Keep it fun but don't force every reference into every analysis
+
+Be real, be concise, be Mike.`;
+}
+
+// ---------- Weekly recap ----------
+
+const MAX_GAMES = 10;
+const MAX_TEAMS = 16;
+
+function cleanScore(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0 || number > 500) throw new Error('bad score');
+    return Math.round(number * 100) / 100;
+}
+
+function optionalSigned(value, limit) {
+    const number = Number(value);
+    return value != null && Number.isFinite(number) && Math.abs(number) <= limit ? Math.round(number * 10) / 10 : null;
+}
+
+function parseRecap(body) {
+    const season = optionalNumber(body.season);
+    const week = optionalNumber(body.week);
+    if (!season || season < DYNASTY_FIRST_SEASON || season > DYNASTY_FINAL_SEASON) throw new Error('bad season');
+    if (!week || week > 18) throw new Error('bad week');
+    if (!Array.isArray(body.games) || !body.games.length || body.games.length > MAX_GAMES) throw new Error('bad games');
+    if (!Array.isArray(body.standings) || body.standings.length > MAX_TEAMS) throw new Error('bad standings');
+    return {
+        season: Math.round(season),
+        week: Math.round(week),
+        isPlayoffs: body.isPlayoffs === true,
+        games: body.games.map(g => ({
+            team1: cleanText(g.team1), score1: cleanScore(g.score1),
+            team2: cleanText(g.team2), score2: cleanScore(g.score2),
+        })),
+        highScore: body.highScore ? { team: cleanText(body.highScore.team), score: cleanScore(body.highScore.score) } : null,
+        standings: body.standings.map(t => ({
+            team: cleanText(t.team),
+            record: optionalText(t.record),
+            points: optionalNumber(t.points),
+            odds: optionalSigned(t.odds, 100),
+            oddsChange: optionalSigned(t.oddsChange, 100),
+        })),
+    };
+}
+
+function buildRecapPrompt({ season, week, isPlayoffs, games, highScore, standings }) {
+    const results = games.map(g => {
+        const [w, l] = g.score1 >= g.score2 ? [[g.team1, g.score1], [g.team2, g.score2]] : [[g.team2, g.score2], [g.team1, g.score1]];
+        return `- ${w[0]} ${w[1]} def. ${l[0]} ${l[1]} (margin ${(w[1] - l[1]).toFixed(2)})`;
+    }).join('\n');
+    const race = standings.map((t, i) => {
+        const parts = [`${i + 1}. ${t.team}`];
+        if (t.record) parts.push(`${season} record ${t.record}`);
+        if (t.points != null) parts.push(`${t.points} dynasty points`);
+        if (t.odds != null) parts.push(`${t.odds}% to win the pot${t.oddsChange != null ? ` (${t.oddsChange >= 0 ? '+' : ''}${t.oddsChange} this week)` : ''}`);
+        return parts.join(', ');
+    }).join('\n');
+
+    return `You are Mike Wilcoxon - a 30-something father and AMC Theaters GM who writes the weekly recap for the Bushido Bowl, a 12-team dynasty fantasy football league. You're educated and pragmatic, the voice of reason in the group. You're also a huge Kanye fan, Survivor superfan, A24 film enthusiast, and long-suffering Chargers supporter.
+
+WEEK ${week} RESULTS (${season}${isPlayoffs ? ', fantasy playoffs' : ''}):
+${results}
+${highScore ? `\nHigh score of the week: ${highScore.team} with ${highScore.score} (earns the weekly high-score bonus)\n` : ''}
+THE 5-YEAR POT RACE (dynasty points so far, chance to win the pot from a simulation, change since last week):
+${race}
+
+CONTEXT:
+- The dynasty runs ${DYNASTY_FIRST_SEASON}-${DYNASTY_FINAL_SEASON}. After the ${DYNASTY_FINAL_SEASON} season, the team with the most dynasty points takes the pot.
+- Dynasty points come from regular-season wins, weekly high scores, playoff berths, title-game appearances and titles.
+- League lore: the "Mahomes Curse" - you got fleeced trading Mahomes to Garret years ago, and the curse says Garret can't win a championship until he trades Mahomes away.
+
+YOUR TASK:
+Write this week's recap in 3 short paragraphs (about 180 words total):
+1. The week's headlines: the high score, the biggest blowout, the closest game, any statement wins.
+2. The pot race: who gained or lost the most ground in their pot odds and what it means for the road to ${DYNASTY_FINAL_SEASON}.
+3. One line looking ahead or calling someone out.
+
+STYLE:
+- Sound like a smart guy texting the group chat, not writing an essay
+- Use team names exactly as given; don't invent stats that aren't listed above
+- Drop natural references to Kanye, Survivor, A24 films, or Chargers pain when they fit, without forcing them
+- Plain text only: no markdown, no headings, no bullet points
 
 Be real, be concise, be Mike.`;
 }

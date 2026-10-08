@@ -363,6 +363,9 @@
             gap: 4px;
             margin-bottom: 36px;
             border-bottom: 1px solid var(--line);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
         }
 
         .tab-btn {
@@ -382,6 +385,8 @@
             box-shadow: none;
             width: auto;
             margin-bottom: -1px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .tab-btn:hover {
@@ -1052,6 +1057,15 @@
             color: var(--sumi);
         }
 
+        .matchup-rivalry {
+            display: block;
+            padding: 6px 0 2px;
+            border-top: 1px dashed var(--line);
+            font-size: 0.8rem;
+            color: var(--sumi-soft);
+            text-align: center;
+        }
+
         .matchup-expand {
             display: block;
             margin-top: 2px;
@@ -1156,6 +1170,250 @@
         .h2h-picker select {
             width: auto;
             min-width: 220px;
+        }
+
+        /* ---------- Mike's recap ---------- */
+        .recap-text {
+            white-space: pre-wrap;
+            line-height: 1.8;
+            padding: 18px 22px;
+            background: #fffdf8;
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--shu);
+            border-radius: 3px;
+            max-width: 75ch;
+        }
+
+        /* ---------- Hall of Shoguns ---------- */
+        .banner-row {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 18px;
+            margin-top: 8px;
+        }
+
+        /* Each champion hangs like a kakejiku scroll: rods top and bottom, paper between */
+        .banner {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 22px 14px 20px;
+            margin: 8px 6px;
+            background: linear-gradient(180deg, var(--card), var(--washi));
+            border: 1px solid var(--line);
+            border-top: 3px solid var(--kin);
+            border-bottom: 3px solid var(--kin);
+            text-align: center;
+            box-shadow: 0 10px 24px -16px rgba(29, 26, 23, 0.5);
+        }
+
+        .banner::before,
+        .banner::after {
+            content: '';
+            position: absolute;
+            left: -8px;
+            right: -8px;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--sumi);
+        }
+
+        .banner::before { top: -10px; }
+        .banner::after { bottom: -10px; }
+
+        .banner-year {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+
+        .banner .team-avatar {
+            width: 76px;
+            height: 76px;
+            box-shadow: 0 0 0 3px var(--kin);
+        }
+
+        .banner-seal {
+            font-family: var(--font-brush);
+            font-size: 0.95rem;
+            color: var(--card);
+            background: var(--shu);
+            padding: 2px 8px;
+            border-radius: 3px;
+            margin-top: -14px;
+            position: relative;
+        }
+
+        .banner-team {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 1.05rem;
+            line-height: 1.25;
+        }
+
+        .banner-manager {
+            font-size: 0.8rem;
+            color: var(--sumi-soft);
+        }
+
+        .banner-detail {
+            font-size: 0.78rem;
+            color: var(--sumi-soft);
+        }
+
+        .banner.empty {
+            opacity: 0.55;
+            background: transparent;
+            border-style: dashed;
+        }
+
+        .banner-empty-mark {
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            border: 2px dashed var(--line);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: 2rem;
+            color: var(--sumi-soft);
+        }
+
+        .hall-sofar {
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--shu);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .awards-grid {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 14px;
+        }
+
+        .award {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 14px 16px;
+            background: var(--washi);
+            border: 1px solid var(--line);
+            border-radius: 3px;
+        }
+
+        .award-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--kin-text);
+        }
+
+        .award-icon {
+            font-size: 1rem;
+            letter-spacing: 0;
+        }
+
+        .award .team-avatar {
+            width: 34px;
+            height: 34px;
+        }
+
+        .award-team {
+            font-family: var(--font-display);
+            font-weight: 800;
+        }
+
+        .award-detail {
+            font-size: 0.85rem;
+            color: var(--sumi-soft);
+        }
+
+        /* ---------- Pot odds ---------- */
+        .odds-list {
+            list-style: none;
+        }
+
+        .odds-row {
+            display: grid;
+            grid-template-columns: minmax(180px, 260px) 1fr 120px;
+            align-items: center;
+            gap: 16px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .odds-row:last-child {
+            border-bottom: none;
+        }
+
+        .odds-row.is-you .race-team-name {
+            color: var(--shu);
+        }
+
+        .odds-track {
+            height: 16px;
+            border-radius: 0 3px 3px 0;
+        }
+
+        .odds-bar {
+            display: block;
+            height: 100%;
+            min-width: 2px;
+            background: var(--ai);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .odds-row:nth-child(n+5) .odds-bar {
+            background: var(--line);
+        }
+
+        .odds-value {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+        }
+
+        .odds-change {
+            font-family: var(--font-body);
+            font-size: 0.75rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .odds-change.up { color: var(--matsu); }
+        .odds-change.down { color: var(--shu); }
+        .odds-change.flat { color: var(--sumi-soft); }
+
+        .race-fact-value .odds-change {
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 768px) {
+            .odds-row {
+                grid-template-columns: 1fr auto;
+                grid-template-areas: "team value" "track track";
+                gap: 6px 12px;
+            }
+
+            .odds-row .race-team { grid-area: team; }
+            .odds-value { grid-area: value; }
+            .odds-track { grid-area: track; height: 12px; }
         }
 
         /* ---------- Clickable leaderboard rows ---------- */
@@ -2306,6 +2564,7 @@
             <div class="tab-navigation">
                 <button class="tab-btn active" onclick="switchTab('overview')">Dynasty Overview</button>
                 <button class="tab-btn" onclick="switchTab('race')">Pot Race</button>
+                <button class="tab-btn" onclick="switchTab('hall')">Hall of Shoguns</button>
                 <button class="tab-btn" onclick="switchTab('historical')">Historical Stats</button>
                 <button class="tab-btn" onclick="switchTab('trades')">Mike's Trade Tracker™</button>
                 <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
@@ -2329,7 +2588,7 @@
                 <div class="stat-card">
                     <div class="stat-label">Your Rank</div>
                     <div class="stat-value">#<span id="userRank">-</span></div>
-                    <div class="stat-subtitle">Out of <span id="totalTeams">0</span> teams</div>
+                    <div class="stat-subtitle">Out of <span id="totalTeams">0</span> teams<span id="userOdds"></span></div>
                 </div>
             </div>
 
@@ -2343,6 +2602,12 @@
                     </div>
                 </div>
                 <div id="liveContent"></div>
+            </div>
+
+            <!-- Mike's weekly recap (AI, via the Cloudflare Worker) -->
+            <div class="stat-section recap-section" id="recapSection" hidden>
+                <h2 class="section-title" id="recapTitle">Mike's Recap</h2>
+                <div id="recapContent"></div>
             </div>
 
             <!-- Leaderboard -->
@@ -2362,6 +2627,14 @@
                 <div class="loading">
                     <div class="spinner"></div>
                     <p>Loading the pot race...</p>
+                </div>
+            </div>
+
+            <!-- Hall of Shoguns Tab -->
+            <div id="hallTab" class="tab-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Opening the Hall of Shoguns...</p>
                 </div>
             </div>
 
@@ -2708,6 +2981,7 @@
             playerValuesCache = null;
             clearTimeout(liveRefreshTimer);
             document.getElementById('liveSection').hidden = true;
+            document.getElementById('recapSection').hidden = true;
             document.getElementById('loginSection').style.display = 'block';
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('username').value = '';
@@ -2861,8 +3135,10 @@
                     }
                 });
                 
-                // Per-season detail for the pot race view
+                // Per-season detail for the pot race view, plus raw data reused by pot odds,
+                // rivalry records, the Hall of Shoguns and Mike's recap
                 const seasonMeta = [];
+                const archive = [];
                 const COUNTED = ['wins', 'highScores', 'playoffBerths', 'championshipAppearances', 'titles'];
                 
                 // Process each season
@@ -2886,6 +3162,8 @@
                     
                     // Fetch playoff bracket once for this season
                     const winnersBracket = await fetchPlayoffBracket(seasonLeagueId);
+                    
+                    archive.push({ season, league, rosters: seasonRosters, matchups: seasonMatchups, bracket: winnersBracket, playoffWeekStart, lastFinishedWeek });
                     
                     // Create roster map for this season
                     const rosterMap = {};
@@ -3120,7 +3398,17 @@
                 
                 document.getElementById('leaderboardContent').innerHTML = tableHTML;
                 
-                renderPotRace(buildPotRace(seasonMeta, leaderboard));
+                leagueArchive = archive;
+                allTimeH2H = buildHeadToHead(archive);
+                
+                const race = buildPotRace(seasonMeta, leaderboard);
+                race.odds = computePotOdds(archive, seasonMeta, leaderboard);
+                potOddsCache = race.odds;
+                renderPotRace(race);
+                showUserOdds(race.odds, currentUser.user_id);
+                if (liveWeekData) renderLiveWeek();
+                renderHallOfShoguns();
+                loadMikeRecap(race);
                 
             } catch (error) {
                 console.error('Error loading leaderboard:', error);
@@ -3768,6 +4056,7 @@
                 if ((tabName === 'overview' && btn.textContent.includes('Overview')) ||
                     (tabName === 'historical' && btn.textContent.includes('Historical')) ||
                     (tabName === 'race' && btn.textContent.includes('Pot Race')) ||
+                    (tabName === 'hall' && btn.textContent.includes('Hall')) ||
                     (tabName === 'trades' && btn.textContent.includes('Trade')) ||
                     (tabName === 'settings' && btn.textContent.includes('Settings'))) {
                     btn.classList.add('active');
@@ -3793,6 +4082,8 @@
                 }
             } else if (tabName === 'race') {
                 document.getElementById('raceTab').classList.add('active');
+            } else if (tabName === 'hall') {
+                document.getElementById('hallTab').classList.add('active');
             } else if (tabName === 'trades') {
                 document.getElementById('tradesTab').classList.add('active');
             } else if (tabName === 'settings') {
@@ -3989,11 +4280,26 @@
                 `;
             };
             
+            // All-time regular-season series between the two managers
+            const rivalry = (a, b) => {
+                const ta = teamFor(a.roster_id), tb = teamFor(b.roster_id);
+                if (!Object.keys(allTimeH2H).length) return '';
+                const rec = allTimeH2H[`${ta.userId}|${tb.userId}`];
+                if (!rec) return '<span class="matchup-rivalry">First regular-season meeting</span>';
+                const { wins: w, losses: l, ties: t } = rec;
+                const tieText = t ? `–${t}` : '';
+                const text = w === l
+                    ? `Series tied ${w}–${l}${tieText}`
+                    : `${escapeHTML((w > l ? ta : tb).name)} leads the series ${Math.max(w, l)}–${Math.min(w, l)}${tieText}`;
+                return `<span class="matchup-rivalry">All-time: ${text}</span>`;
+            };
+            
             const cards = pairs.map(([matchupId, [a, b]]) => `
                 <details class="matchup" data-matchup-id="${matchupId}" ${openMatchups.has(matchupId) ? 'open' : ''} ontoggle="if (this.open) renderLineups(this)">
                     <summary>
                         ${teamRow(a, b)}
                         ${teamRow(b, a)}
+                        ${rivalry(a, b)}
                         <span class="matchup-expand">Lineups</span>
                     </summary>
                     <div class="matchup-lineups"></div>
@@ -4062,6 +4368,501 @@
             `;
         }
 
+        // ==================== SHARED SEASON DATA ====================
+        
+        let leagueArchive = [];
+        let allTimeH2H = {};
+        let potOddsCache = null;
+        
+        // Every finished game in a season: [{ week, playoffs, a: {userId, points}, b: {userId, points} }]
+        function seasonGames(entry, { regularOnly = false } = {}) {
+            const owner = {};
+            entry.rosters.forEach(r => { owner[r.roster_id] = r.owner_id; });
+            const games = [];
+            entry.matchups.forEach(({ week, matchups }) => {
+                if (!matchups || !matchups.length || week > entry.lastFinishedWeek) return;
+                if (regularOnly && week >= entry.playoffWeekStart) return;
+                if (Math.max(...matchups.map(m => m.points || 0)) === 0) return; // not played yet
+                const byMatchup = {};
+                matchups.forEach(m => {
+                    if (m.matchup_id == null) return;
+                    (byMatchup[m.matchup_id] = byMatchup[m.matchup_id] || []).push(m);
+                });
+                Object.values(byMatchup).forEach(pair => {
+                    if (pair.length !== 2) return;
+                    games.push({
+                        week,
+                        playoffs: week >= entry.playoffWeekStart,
+                        a: { userId: owner[pair[0].roster_id], points: pair[0].points || 0 },
+                        b: { userId: owner[pair[1].roster_id], points: pair[1].points || 0 }
+                    });
+                });
+            });
+            return games;
+        }
+        
+        // All-time regular-season record between every pair of managers
+        function buildHeadToHead(archive) {
+            const h2h = {};
+            const add = (me, opp, result) => {
+                const key = `${me}|${opp}`;
+                h2h[key] = h2h[key] || { wins: 0, losses: 0, ties: 0 };
+                h2h[key][result]++;
+            };
+            archive.forEach(entry => seasonGames(entry, { regularOnly: true }).forEach(g => {
+                if (g.a.points === g.b.points) {
+                    add(g.a.userId, g.b.userId, 'ties');
+                    add(g.b.userId, g.a.userId, 'ties');
+                } else {
+                    const [w, l] = g.a.points > g.b.points ? [g.a, g.b] : [g.b, g.a];
+                    add(w.userId, l.userId, 'wins');
+                    add(l.userId, w.userId, 'losses');
+                }
+            }));
+            return h2h;
+        }
+        
+        function teamInfo(userId) {
+            const users = JSON.parse(sessionStorage.getItem('users') || '[]');
+            const user = users.find(u => u.user_id === userId);
+            return {
+                name: user?.metadata?.team_name || user?.display_name || 'Former manager',
+                manager: user?.display_name || user?.username || '',
+                avatar: teamAvatarUrl(user)
+            };
+        }
+        
+        // ==================== MIKE'S WEEKLY RECAP ====================
+        
+        // Mike writes up the most recent finished week. Each browser keeps the recap for that week,
+        // so it's generated once per viewer per week rather than on every visit.
+        async function loadMikeRecap(race) {
+            const section = document.getElementById('recapSection');
+            const content = document.getElementById('recapContent');
+            const entry = leagueArchive[leagueArchive.length - 1];
+            if (!entry || entry.league.status !== 'in_season') { section.hidden = true; return; }
+            
+            const week = entry.lastFinishedWeek;
+            const weekGames = seasonGames(entry).filter(g => g.week === week);
+            if (!week || !weekGames.length) { section.hidden = true; return; }
+            
+            const isPlayoffs = week >= entry.playoffWeekStart;
+            document.getElementById('recapTitle').textContent = `Mike's Week ${week} Recap`;
+            section.hidden = false;
+            
+            const cacheKey = `mikeRecap:${sessionStorage.getItem('leagueId')}:${entry.season}:${week}:v1`;
+            let cached = null;
+            try { cached = localStorage.getItem(cacheKey); } catch (e) {}
+            if (cached) { showRecap(cached); return; }
+            
+            content.innerHTML = '<div class="loading"><div class="spinner"></div><p>Mike is writing up the week...</p></div>';
+            
+            const round = (n, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
+            const name = id => teamInfo(id).name;
+            const recordOf = id => {
+                const st = entry.rosters.find(r => r.owner_id === id)?.settings || {};
+                return `${st.wins || 0}-${st.losses || 0}${st.ties ? `-${st.ties}` : ''}`;
+            };
+            const sides = weekGames.flatMap(g => [g.a, g.b]);
+            const top = sides.reduce((x, y) => (y.points > x.points ? y : x));
+            const odds = race.odds;
+            
+            const payload = {
+                type: 'recap',
+                season: entry.season,
+                week,
+                isPlayoffs,
+                games: weekGames.map(g => ({ team1: name(g.a.userId), score1: round(g.a.points), team2: name(g.b.userId), score2: round(g.b.points) })),
+                highScore: isPlayoffs ? null : { team: name(top.userId), score: round(top.points) },
+                standings: race.teams.map(t => ({
+                    team: t.teamName,
+                    record: recordOf(t.userId),
+                    points: round(t.points, 1),
+                    odds: odds ? round(odds.now[t.userId] || 0, 1) : null,
+                    oddsChange: odds?.lastWeek && odds.week === week ? round((odds.now[t.userId] || 0) - (odds.lastWeek[t.userId] || 0), 1) : null
+                }))
+            };
+            
+            try {
+                const response = await fetch('https://mikestrade.alank-42a.workers.dev/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`Recap request failed: ${response.status}`);
+                const data = await response.json();
+                if (!data.text) throw new Error('Empty recap');
+                try { localStorage.setItem(cacheKey, data.text); } catch (e) {}
+                showRecap(data.text);
+            } catch (error) {
+                console.error('Error loading Mike\'s recap:', error);
+                content.innerHTML = '<p class="section-note">Mike\'s recap isn\'t available right now. Check back later.</p>';
+            }
+        }
+        
+        function showRecap(text) {
+            document.getElementById('recapContent').innerHTML = `
+                <div class="recap-text">${escapeHTML(text)}</div>
+                <p class="race-footnote">Written by AI in the voice of Mike, from this week's results and the pot odds.</p>
+            `;
+        }
+
+        // ==================== HALL OF SHOGUNS ====================
+        
+        // Champions, season awards and all-time records, all from the seasons the leaderboard loaded
+        function seasonAwards(entry) {
+            const complete = entry.league.status === 'complete';
+            const regular = seasonGames(entry, { regularOnly: true });
+            const recordOf = r => ({ wins: r.settings?.wins || 0, losses: r.settings?.losses || 0, ties: r.settings?.ties || 0, pf: (r.settings?.fpts || 0) + (r.settings?.fpts_decimal || 0) / 100 });
+            const teams = entry.rosters.filter(r => r.owner_id).map(r => ({ userId: r.owner_id, rosterId: r.roster_id, ...recordOf(r) }));
+            const recordText = t => `${t.wins}–${t.losses}${t.ties ? `–${t.ties}` : ''}`;
+            const awards = [];
+            
+            // Title game, from the playoff bracket
+            if (complete && entry.bracket?.length) {
+                const final = entry.bracket.find(m => m.p === 1);
+                if (final?.w && final?.l) {
+                    const finalWeek = entry.playoffWeekStart + (final.r || 1) - 1;
+                    const weekMatchups = entry.matchups.find(m => m.week === finalWeek)?.matchups || [];
+                    const pts = rosterId => weekMatchups.find(m => m.roster_id === rosterId)?.points;
+                    const owner = rosterId => entry.rosters.find(r => r.roster_id === rosterId)?.owner_id;
+                    const champ = owner(final.w), runner = owner(final.l);
+                    const score = pts(final.w) !== undefined && pts(final.l) !== undefined ? ` ${pts(final.w).toFixed(2)}–${pts(final.l).toFixed(2)}` : '';
+                    awards.push({ key: 'champion', icon: '🏆', label: 'Shōgun (Champion)', userId: champ, detail: `Beat ${teamInfo(runner).name} in the final${score}`, opponent: runner, score });
+                    awards.push({ key: 'runner-up', icon: '⚔️', label: 'Runner-up', userId: runner, detail: `Reached the title game` });
+                }
+            }
+            
+            if (regular.length) {
+                const byRecord = [...teams].sort((a, b) => b.wins - a.wins || b.pf - a.pf);
+                awards.push({ key: 'king', icon: '👑', label: 'Regular Season King', userId: byRecord[0].userId, detail: `${recordText(byRecord[0])} record` });
+                const byPoints = [...teams].sort((a, b) => b.pf - a.pf);
+                awards.push({ key: 'points', icon: '📈', label: 'Points Machine', userId: byPoints[0].userId, detail: `${byPoints[0].pf.toFixed(1)} points scored` });
+                
+                const sides = regular.flatMap(g => [{ ...g.a, week: g.week }, { ...g.b, week: g.week }]);
+                const best = sides.reduce((x, y) => (y.points > x.points ? y : x));
+                awards.push({ key: 'high', icon: '💥', label: 'Highest Single Week', userId: best.userId, detail: `${best.points.toFixed(2)} in week ${best.week}` });
+                
+                const margins = regular.map(g => {
+                    const [w, l] = g.a.points >= g.b.points ? [g.a, g.b] : [g.b, g.a];
+                    return { week: g.week, winner: w, loser: l, margin: w.points - l.points };
+                }).filter(m => m.margin > 0);
+                if (margins.length) {
+                    const blowout = margins.reduce((x, y) => (y.margin > x.margin ? y : x));
+                    awards.push({ key: 'blowout', icon: '🔨', label: 'Biggest Blowout', userId: blowout.winner.userId, detail: `Beat ${teamInfo(blowout.loser.userId).name} by ${blowout.margin.toFixed(2)} in week ${blowout.week}` });
+                    const heartbreak = margins.reduce((x, y) => (y.margin < x.margin ? y : x));
+                    awards.push({ key: 'heartbreak', icon: '💔', label: 'Heartbreak of the Year', userId: heartbreak.loser.userId, detail: `Lost to ${teamInfo(heartbreak.winner.userId).name} by ${heartbreak.margin.toFixed(2)} in week ${heartbreak.week}` });
+                }
+                
+                // Luck: actual wins vs the wins weekly scoring deserved (all-play)
+                const luck = {};
+                const weeks = [...new Set(regular.map(g => g.week))];
+                weeks.forEach(week => {
+                    const weekSides = sides.filter(x => x.week === week);
+                    weekSides.forEach(me => {
+                        const others = weekSides.filter(o => o !== me);
+                        const beat = others.filter(o => me.points > o.points).length;
+                        const tied = others.filter(o => me.points === o.points).length;
+                        luck[me.userId] = luck[me.userId] || { expected: 0, actual: 0 };
+                        if (others.length) luck[me.userId].expected += (beat + tied / 2) / others.length;
+                    });
+                });
+                regular.forEach(g => {
+                    if (g.a.points === g.b.points) { luck[g.a.userId].actual += 0.5; luck[g.b.userId].actual += 0.5; }
+                    else luck[(g.a.points > g.b.points ? g.a : g.b).userId].actual += 1;
+                });
+                const luckList = Object.entries(luck).map(([userId, v]) => ({ userId, luck: v.actual - v.expected }));
+                const lucky = luckList.reduce((x, y) => (y.luck > x.luck ? y : x));
+                const unlucky = luckList.reduce((x, y) => (y.luck < x.luck ? y : x));
+                awards.push({ key: 'lucky', icon: '🍀', label: 'Luckiest Team', userId: lucky.userId, detail: `${lucky.luck >= 0 ? '+' : ''}${lucky.luck.toFixed(1)} wins more than their scoring deserved` });
+                awards.push({ key: 'unlucky', icon: '🌧️', label: 'Unluckiest Team', userId: unlucky.userId, detail: `${Math.abs(unlucky.luck).toFixed(1)} wins fewer than their scoring deserved` });
+                
+                const spoon = byRecord[byRecord.length - 1];
+                awards.push({ key: 'spoon', icon: '🥄', label: 'Wooden Spoon', userId: spoon.userId, detail: `${recordText(spoon)} record` });
+            }
+            return { season: entry.season, complete, awards, regular };
+        }
+        
+        function renderHallOfShoguns() {
+            const hall = document.getElementById('hallTab');
+            if (!leagueArchive.length) return;
+            const seasons = leagueArchive.map(seasonAwards);
+            const firstSeason = leagueArchive[0].season;
+            const finalSeason = firstSeason + getSettings().dynastyLength - 1;
+            
+            // Banners: one hanging scroll per season of the dynasty
+            const banners = [];
+            for (let season = firstSeason; season <= finalSeason; season++) {
+                const data = seasons.find(x => x.season === season);
+                const champ = data?.awards.find(a => a.key === 'champion');
+                if (champ) {
+                    const team = teamInfo(champ.userId);
+                    banners.push(`
+                        <li class="banner">
+                            <span class="banner-year">${season}</span>
+                            ${avatarImg(team.avatar)}
+                            <span class="banner-seal">将軍</span>
+                            <span class="banner-team">${escapeHTML(team.name)}</span>
+                            <span class="banner-manager">${escapeHTML(team.manager)}</span>
+                            <span class="banner-detail">${escapeHTML(champ.detail)}</span>
+                        </li>
+                    `);
+                } else {
+                    banners.push(`
+                        <li class="banner empty">
+                            <span class="banner-year">${season}</span>
+                            <span class="banner-empty-mark">?</span>
+                            <span class="banner-detail">${data ? 'Being decided' : 'Awaits a Shōgun'}</span>
+                        </li>
+                    `);
+                }
+            }
+            
+            const awardCard = a => {
+                const team = teamInfo(a.userId);
+                return `
+                    <li class="award">
+                        <span class="award-label"><span class="award-icon">${a.icon}</span>${escapeHTML(a.label)}</span>
+                        <span class="team-label">${avatarImg(team.avatar)}<span class="award-team">${escapeHTML(team.name)}</span></span>
+                        <span class="award-detail">${escapeHTML(a.detail)}</span>
+                    </li>
+                `;
+            };
+            
+            const seasonSections = [...seasons].reverse().filter(x => x.awards.length).map(x => `
+                <div class="stat-section">
+                    <h2 class="section-title">${x.season} Awards${x.complete ? '' : ' <span class="hall-sofar">so far</span>'}</h2>
+                    <ul class="awards-grid">${x.awards.map(awardCard).join('')}</ul>
+                </div>
+            `).join('');
+            
+            // All-time records across every season
+            const allSides = [], allMargins = [];
+            seasons.forEach(x => x.regular.forEach(g => {
+                allSides.push({ ...g.a, week: g.week, season: x.season }, { ...g.b, week: g.week, season: x.season });
+                const [w, l] = g.a.points >= g.b.points ? [g.a, g.b] : [g.b, g.a];
+                if (w.points > l.points) allMargins.push({ winner: w, loser: l, margin: w.points - l.points, week: g.week, season: x.season });
+            }));
+            const records = [];
+            if (allSides.length) {
+                const high = allSides.reduce((x, y) => (y.points > x.points ? y : x));
+                records.push({ icon: '💥', label: 'Highest Score Ever', userId: high.userId, detail: `${high.points.toFixed(2)} · ${high.season} week ${high.week}` });
+                const played = allSides.filter(x => x.points > 0);
+                const low = played.reduce((x, y) => (y.points < x.points ? y : x));
+                records.push({ icon: '🪦', label: 'Lowest Score Ever', userId: low.userId, detail: `${low.points.toFixed(2)} · ${low.season} week ${low.week}` });
+            }
+            if (allMargins.length) {
+                const blowout = allMargins.reduce((x, y) => (y.margin > x.margin ? y : x));
+                records.push({ icon: '🔨', label: 'Biggest Blowout Ever', userId: blowout.winner.userId, detail: `By ${blowout.margin.toFixed(2)} over ${teamInfo(blowout.loser.userId).name} · ${blowout.season} week ${blowout.week}` });
+                const closest = allMargins.reduce((x, y) => (y.margin < x.margin ? y : x));
+                records.push({ icon: '🪶', label: 'Closest Game Ever', userId: closest.winner.userId, detail: `Edged ${teamInfo(closest.loser.userId).name} by ${closest.margin.toFixed(2)} · ${closest.season} week ${closest.week}` });
+            }
+            const titles = {};
+            seasons.forEach(x => x.awards.filter(a => a.key === 'champion').forEach(a => { titles[a.userId] = (titles[a.userId] || 0) + 1; }));
+            const mostTitles = Object.entries(titles).sort((a, b) => b[1] - a[1])[0];
+            if (mostTitles) records.push({ icon: '🏆', label: 'Most Titles', userId: mostTitles[0], detail: `${mostTitles[1]} championship${mostTitles[1] === 1 ? '' : 's'}` });
+            
+            hall.innerHTML = `
+                <div class="stat-section">
+                    <h2 class="section-title">Hall of Shoguns</h2>
+                    <p class="section-note">One banner for each season of the dynasty. The champion of each season is its Shōgun.</p>
+                    <ol class="banner-row">${banners.join('')}</ol>
+                </div>
+                ${records.length ? `
+                    <div class="stat-section">
+                        <h2 class="section-title">All-Time Records</h2>
+                        <ul class="awards-grid">${records.map(awardCard).join('')}</ul>
+                        <p class="race-footnote">Regular-season games only.</p>
+                    </div>
+                ` : ''}
+                ${seasonSections}
+            `;
+        }
+
+        // ==================== POT ODDS (simulation) ====================
+        
+        // Small seeded random generator, so the odds don't wobble between page loads
+        function seededRandom(seed) {
+            let a = seed >>> 0;
+            const uniform = () => {
+                a = (a + 0x6D2B79F5) >>> 0;
+                let t = a;
+                t = Math.imul(t ^ (t >>> 15), t | 1);
+                t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+            let spare = null;
+            const normal = () => {
+                if (spare !== null) { const v = spare; spare = null; return v; }
+                let u, v, s;
+                do { u = uniform() * 2 - 1; v = uniform() * 2 - 1; s = u * u + v * v; } while (s >= 1 || s === 0);
+                const m = Math.sqrt(-2 * Math.log(s) / s);
+                spare = v * m;
+                return u * m;
+            };
+            return { uniform, normal };
+        }
+        
+        // Model calibrated to this league's 2025 scoring: true team strength varies by ~9 points a week,
+        // weekly scores swing ~21 points, and dynasty rosters carry ~65% of their strength into the next year
+        const POT_SIM = { worlds: 3000, trueSd: 9, weekSd: 21, carryover: 0.65, seed: 20290 };
+        
+        function computePotOdds(archive, seasonMeta, leaderboard) {
+            if (!archive.length || !leaderboard.length) return null;
+            const settingsNow = getSettings();
+            const finalSeason = seasonMeta[0].season + settingsNow.dynastyLength - 1;
+            const current = archive[archive.length - 1];
+            const meta = seasonMeta[seasonMeta.length - 1];
+            if (meta.season > finalSeason || (meta.complete && meta.season === finalSeason)) return null; // pot is decided
+            
+            const ids = leaderboard.map(e => e.userId);
+            const index = {};
+            ids.forEach((id, i) => { index[id] = i; });
+            
+            // Strength estimate per team from every regular-season score so far, shrunk toward average
+            const scores = ids.map(() => []);
+            archive.forEach(entry => seasonGames(entry, { regularOnly: true }).forEach(g => {
+                [g.a, g.b].forEach(side => { if (side.userId in index) scores[index[side.userId]].push(side.points); });
+            }));
+            const all = scores.flat();
+            const leagueAvg = all.length ? all.reduce((a, b) => a + b, 0) / all.length : 110;
+            const { trueSd, weekSd, carryover } = POT_SIM;
+            const estimates = scores.map(list => {
+                if (!list.length) return { mean: 0, sd: trueSd };
+                const avg = list.reduce((a, b) => a + b, 0) / list.length;
+                const shrink = trueSd ** 2 / (trueSd ** 2 + weekSd ** 2 / list.length);
+                return { mean: shrink * (avg - leagueAvg), sd: trueSd * Math.sqrt(1 - shrink) };
+            });
+            
+            // Where the current season stands
+            const regularWeeks = meta.regularWeeks;
+            const playoffTeams = current.league.settings.playoff_teams || 6;
+            const ownerOfRoster = {};
+            current.rosters.forEach(r => { ownerOfRoster[r.roster_id] = r.owner_id; });
+            const baseWins = ids.map(id => current.rosters.find(r => r.owner_id === id)?.settings?.wins || 0);
+            const basePf = ids.map(id => {
+                const st = current.rosters.find(r => r.owner_id === id)?.settings || {};
+                return (st.fpts || 0) + (st.fpts_decimal || 0) / 100;
+            });
+            const baseTotals = leaderboard.map(e => e.points);
+            const inProgress = !meta.complete;
+            const futureSeasons = Math.max(0, finalSeason - meta.season);
+            
+            const run = (totals0, wins0, pf0, startWeek) => {
+                const rng = seededRandom(POT_SIM.seed);
+                const potWins = ids.map(() => 0);
+                const n = ids.length;
+                for (let world = 0; world < POT_SIM.worlds; world++) {
+                    let strength = estimates.map(e => e.mean + e.sd * rng.normal());
+                    const totals = [...totals0];
+                    if (inProgress) simulateSeason(rng, strength, totals, [...wins0], [...pf0], startWeek, regularWeeks, playoffTeams, leagueAvg);
+                    for (let s = 0; s < futureSeasons; s++) {
+                        strength = strength.map(x => carryover * x + Math.sqrt(1 - carryover ** 2) * trueSd * rng.normal());
+                        simulateSeason(rng, strength, totals, Array(n).fill(0), Array(n).fill(0), 1, regularWeeks, playoffTeams, leagueAvg);
+                    }
+                    let best = 0;
+                    for (let i = 1; i < n; i++) if (totals[i] > totals[best]) best = i;
+                    potWins[best]++;
+                }
+                const odds = {};
+                ids.forEach((id, i) => { odds[id] = potWins[i] / POT_SIM.worlds * 100; });
+                return odds;
+            };
+            
+            const now = run(baseTotals, baseWins, basePf, inProgress ? meta.weeksPlayed + 1 : 1);
+            
+            // Same simulation from one week earlier, to show who moved
+            let lastWeek = null;
+            if (inProgress && meta.weeksPlayed >= 1) {
+                const totals = [...baseTotals], wins = [...baseWins], pf = [...basePf];
+                const weekGames = seasonGames(current, { regularOnly: true }).filter(g => g.week === meta.weeksPlayed);
+                const weekScores = weekGames.flatMap(g => [g.a, g.b]);
+                const top = Math.max(...weekScores.map(x => x.points), 0);
+                weekGames.forEach(g => {
+                    [g.a, g.b].forEach(side => {
+                        const i = index[side.userId];
+                        if (i === undefined) return;
+                        pf[i] -= side.points;
+                        if (side.points === top && top > 0) totals[i] -= SCORING.highestWeeklyScore;
+                    });
+                    if (g.a.points !== g.b.points) {
+                        const i = index[(g.a.points > g.b.points ? g.a : g.b).userId];
+                        if (i !== undefined) { wins[i]--; totals[i] -= SCORING.regularSeasonWin; }
+                    }
+                });
+                lastWeek = run(totals, wins, pf, meta.weeksPlayed);
+            }
+            
+            return { now, lastWeek, week: inProgress ? meta.weeksPlayed : null, season: meta.season };
+        }
+        
+        // One season (or the rest of one): weekly games, high-score bonus, then a seeded playoff bracket
+        function simulateSeason(rng, strength, totals, wins, pf, startWeek, regularWeeks, playoffTeams, leagueAvg) {
+            const n = strength.length;
+            const { weekSd } = POT_SIM;
+            const order = [...Array(n).keys()];
+            for (let week = startWeek; week <= regularWeeks; week++) {
+                const scores = strength.map(x => leagueAvg + x + weekSd * rng.normal());
+                for (let i = n - 1; i > 0; i--) {
+                    const j = Math.floor(rng.uniform() * (i + 1));
+                    [order[i], order[j]] = [order[j], order[i]];
+                }
+                for (let k = 0; k + 1 < n; k += 2) {
+                    const a = order[k], b = order[k + 1];
+                    const winner = scores[a] > scores[b] ? a : b;
+                    wins[winner]++;
+                    totals[winner] += SCORING.regularSeasonWin;
+                }
+                let top = 0;
+                for (let i = 0; i < n; i++) { pf[i] += scores[i]; if (scores[i] > scores[top]) top = i; }
+                totals[top] += SCORING.highestWeeklyScore;
+            }
+            
+            // Playoffs: top seeds by wins (points for breaks ties), byes for the best seeds if needed
+            const seeds = [...Array(n).keys()].sort((a, b) => wins[b] - wins[a] || pf[b] - pf[a]).slice(0, Math.min(playoffTeams, n));
+            const seedRank = {};
+            seeds.forEach((team, i) => { seedRank[team] = i; });
+            seeds.forEach(team => { totals[team] += SCORING.playoffBerth; });
+            const play = (a, b) => (leagueAvg + strength[a] + weekSd * rng.normal() > leagueAvg + strength[b] + weekSd * rng.normal() ? a : b);
+            
+            let round = seeds;
+            const bracketSize = 2 ** Math.ceil(Math.log2(Math.max(round.length, 2)));
+            let byes = bracketSize - round.length;
+            while (round.length > 2) {
+                const advancing = round.slice(0, byes);
+                const playing = round.slice(byes);
+                for (let i = 0; i < playing.length / 2; i++) advancing.push(play(playing[i], playing[playing.length - 1 - i]));
+                round = advancing.sort((a, b) => seedRank[a] - seedRank[b]);
+                byes = 0;
+            }
+            if (round.length === 2) {
+                round.forEach(team => { totals[team] += SCORING.championshipAppearance; });
+                totals[play(round[0], round[1])] += SCORING.titleWin;
+            }
+        }
+        
+        // Small odds note on the overview's rank card
+        function showUserOdds(odds, userId) {
+            const el = document.getElementById('userOdds');
+            if (!el) return;
+            const pct = odds?.now?.[userId];
+            el.textContent = pct === undefined ? '' : ` · ${formatOdds(pct)} to win the pot`;
+        }
+        
+        function formatOdds(pct) {
+            if (pct >= 10) return `${Math.round(pct)}%`;
+            if (pct >= 0.95) return `${pct.toFixed(1).replace(/\.0$/, '')}%`;
+            if (pct > 0) return '<1%';
+            return '0%';
+        }
+        
+        function oddsChange(odds, userId) {
+            if (!odds?.lastWeek) return '';
+            const diff = odds.now[userId] - odds.lastWeek[userId];
+            if (Math.abs(diff) < 0.5) return '<span class="odds-change flat">–</span>';
+            return `<span class="odds-change ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(Math.abs(diff) < 10 ? 1 : 0)}</span>`;
+        }
+
         // ==================== POT RACE ====================
         
         // Works out what's left in the 5-year race: points still available, gaps, pace and who can still win
@@ -4122,6 +4923,33 @@
             });
             
             return { seasonMeta, firstSeason, finalSeason, current, futureSeasons, maxRemaining, fullSeasonMax, teams };
+        }
+        
+        // Who's most likely to win the pot, with the change since last week
+        function renderOddsSection(race, currentUserId) {
+            const { odds, teams } = race;
+            const rows = [...teams].sort((a, b) => (odds.now[b.userId] || 0) - (odds.now[a.userId] || 0));
+            const maxOdds = Math.max(...rows.map(t => odds.now[t.userId] || 0), 1);
+            const changeNote = odds.lastWeek ? ` Arrows show the change since before week ${odds.week}.` : '';
+            return `
+                <div class="stat-section">
+                    <h2 class="section-title">Pot Odds</h2>
+                    <p class="section-note">Each team's chance to win the pot, from ${POT_SIM.worlds.toLocaleString()} simulations of every remaining game through ${race.finalSeason}.${changeNote}</p>
+                    <ol class="odds-list">
+                        ${rows.map(t => {
+                            const pct = odds.now[t.userId] || 0;
+                            return `
+                                <li class="odds-row ${t.userId === currentUserId ? 'is-you' : ''}">
+                                    <span class="race-team">${avatarImg(t.avatar)}<span class="race-team-name">${escapeHTML(t.teamName)}</span></span>
+                                    <span class="odds-track"><span class="odds-bar" style="width: ${(pct / maxOdds * 100).toFixed(1)}%"></span></span>
+                                    <span class="odds-value"><strong>${formatOdds(pct)}</strong>${oddsChange(odds, t.userId)}</span>
+                                </li>
+                            `;
+                        }).join('')}
+                    </ol>
+                    <p class="race-footnote">Built from this league's real scores: team strength is estimated from every regular-season week so far, rosters carry most of their strength into the next season, and each week's scores vary as much as they really do. It's a forecast, not a guarantee.</p>
+                </div>
+            `;
         }
         
         function scoreCounts(c) {
@@ -4193,6 +5021,7 @@
                     <td data-label="Behind Leader">${t.gap > 0 ? `−${fmt(t.gap)}` : 'Leader'}</td>
                     <td data-label="On Pace For"><span>${fmt(t.projected)} <span class="race-proj-rank">(#${t.projectedRank})</span></span></td>
                     <td data-label="Max Possible">${fmt(t.maxPossible)}</td>
+                    ${race.odds ? `<td data-label="Pot Odds"><span>${formatOdds(race.odds.now[t.userId] || 0)} ${oddsChange(race.odds, t.userId)}</span></td>` : ''}
                     <td data-label="Status">${t.eliminated ? '<span class="race-status out">Eliminated</span>' : t.rank === 1 ? '<span class="race-status lead">Leading</span>' : '<span class="race-status alive">Alive</span>'}</td>
                 </tr>
             `).join('');
@@ -4206,9 +5035,13 @@
                         <div><span class="race-fact-value">${fmt(maxRemaining)}</span><span class="race-fact-label">Points still available to every team</span></div>
                         <div><span class="race-fact-value">${fmt(leader.points)}</span><span class="race-fact-label">${escapeHTML(leader.teamName)} leads</span></div>
                         <div><span class="race-fact-value">${alive} of ${teams.length}</span><span class="race-fact-label">Teams that can still win</span></div>
-                        <div><span class="race-fact-value">${fmt(projectedLeader.projected)}</span><span class="race-fact-label">${escapeHTML(projectedLeader.teamName)} on pace to win</span></div>
+                        ${race.odds && race.odds.now[currentUser.user_id] !== undefined
+                            ? `<div><span class="race-fact-value">${formatOdds(race.odds.now[currentUser.user_id])} ${oddsChange(race.odds, currentUser.user_id)}</span><span class="race-fact-label">Your chance to win the pot</span></div>`
+                            : `<div><span class="race-fact-value">${fmt(projectedLeader.projected)}</span><span class="race-fact-label">${escapeHTML(projectedLeader.teamName)} on pace to win</span></div>`}
                     </div>
                 </div>
+                
+                ${race.odds ? renderOddsSection(race, currentUser.user_id) : ''}
                 
                 <div class="stat-section">
                     <h2 class="section-title">The Race</h2>
@@ -4232,6 +5065,7 @@
                                 <th>Behind</th>
                                 <th>On Pace For</th>
                                 <th>Max Possible</th>
+                                ${race.odds ? '<th>Pot Odds</th>' : ''}
                                 <th>Status</th>
                             </tr>
                         </thead>
