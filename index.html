@@ -894,6 +894,52 @@
             }
         }
 
+        /* ---------- Luck, streaks, head-to-head ---------- */
+        .section-note {
+            color: var(--sumi-soft);
+            max-width: 70ch;
+            margin: -12px 0 6px;
+            font-size: 0.92rem;
+        }
+
+        .luck {
+            font-weight: 700;
+        }
+
+        .luck.lucky { color: var(--matsu); }
+        .luck.unlucky { color: var(--shu); }
+
+        .streak-badge {
+            display: inline-block;
+            min-width: 40px;
+            padding: 2px 8px;
+            border-radius: 2px;
+            text-align: center;
+            font-weight: 700;
+            background: var(--line-soft);
+            color: var(--sumi-soft);
+        }
+
+        .streak-badge.win { background: rgba(61, 107, 76, 0.14); color: var(--matsu); }
+        .streak-badge.loss { background: rgba(179, 54, 43, 0.1); color: var(--shu); }
+
+        .h2h-picker {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+
+        .h2h-picker label {
+            margin: 0;
+        }
+
+        .h2h-picker select {
+            width: auto;
+            min-width: 220px;
+        }
+
         /* ---------- Clickable leaderboard rows ---------- */
         .table-hint {
             font-size: 0.85rem;
@@ -2942,12 +2988,19 @@
                 stats.weeklyDominance[userId] = { highScores: 0, highestScore: 0, lowestScore: 999, avgScore: 0, totalScores: [] };
                 stats.headToHead[userId] = {};
                 stats.consistency[userId] = { scores: [], variance: 0 };
-                stats.streaks[userId] = { currentStreak: 0, playoffStreak: 0 };
-                stats.funStats[userId] = { shouldveWon: 0, luckyWins: 0, heartbreakLosses: 0 };
+                stats.streaks[userId] = { current: '—', longestWin: 0, longestLose: 0, playoffStreak: 0, results: [], playoffSeasons: [] };
+                stats.funStats[userId] = {
+                    wins: 0, losses: 0, ties: 0,
+                    allPlayWins: 0, allPlayLosses: 0, allPlayTies: 0, expectedWins: 0,
+                    shouldveWon: 0, luckyWins: 0, heartbreakLosses: 0
+                };
             });
+            
+            const completedSeasons = [];
 
             allSeasonData.forEach(seasonData => {
                 const { season, league, rosters, matchups, bracket } = seasonData;
+                if (league.status === 'complete') completedSeasons.push(season);
                 
                 // Championship tracking
                 if (league.status === 'complete' && bracket && bracket.length > 0) {
@@ -3003,6 +3056,7 @@
                     if (league.status === 'complete' && seed <= playoffTeams && wins > 0) {
                         stats.playoffStats[userId].appearances++;
                         stats.playoffStats[userId].seeds.push(seed);
+                        stats.streaks[userId]?.playoffSeasons.push(season);
                     }
                 });
 
@@ -3020,6 +3074,60 @@
 
                     // Skip weeks that haven't been played yet (everyone at 0)
                     if (maxScore === 0) return;
+
+                    // Regular-season games feed head-to-head, streaks and luck
+                    if (week < playoffWeekStart) {
+                        const ownerOf = rosterId => rosters.find(r => r.roster_id === rosterId)?.owner_id;
+                        const sortedScores = weekMatchups.map(m => m.points || 0).sort((a, b) => a - b);
+                        const mid = (sortedScores.length - 1) / 2;
+                        const median = (sortedScores[Math.floor(mid)] + sortedScores[Math.ceil(mid)]) / 2;
+
+                        // Opponents share a matchup_id
+                        const games = {};
+                        weekMatchups.forEach(m => {
+                            if (m.matchup_id == null) return;
+                            (games[m.matchup_id] = games[m.matchup_id] || []).push(m);
+                        });
+
+                        Object.values(games).forEach(pair => {
+                            if (pair.length !== 2) return;
+                            pair.forEach((me, i) => {
+                                const opp = pair[1 - i];
+                                const userId = ownerOf(me.roster_id);
+                                const oppId = ownerOf(opp.roster_id);
+                                if (!stats.funStats[userId] || !oppId) return;
+
+                                const pointsFor = me.points || 0;
+                                const pointsAgainst = opp.points || 0;
+                                const result = pointsFor > pointsAgainst ? 'W' : pointsFor < pointsAgainst ? 'L' : 'T';
+                                const resultKey = { W: 'wins', L: 'losses', T: 'ties' }[result];
+
+                                const h2h = stats.headToHead[userId][oppId] = stats.headToHead[userId][oppId] ||
+                                    { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 };
+                                h2h[resultKey]++;
+                                h2h.pointsFor += pointsFor;
+                                h2h.pointsAgainst += pointsAgainst;
+
+                                stats.streaks[userId].results.push(result);
+
+                                // All-play: this week's score against every other team, not just the opponent
+                                const fun = stats.funStats[userId];
+                                fun[resultKey]++;
+                                const others = weekMatchups.filter(m => m !== me).map(m => m.points || 0);
+                                const beat = others.filter(x => pointsFor > x).length;
+                                const lostTo = others.filter(x => pointsFor < x).length;
+                                const tied = others.length - beat - lostTo;
+                                fun.allPlayWins += beat;
+                                fun.allPlayLosses += lostTo;
+                                fun.allPlayTies += tied;
+                                if (others.length) fun.expectedWins += (beat + tied / 2) / others.length;
+
+                                if (result === 'W' && pointsFor < median) fun.luckyWins++;
+                                if (result === 'L' && pointsFor > median) fun.shouldveWon++;
+                                if (result === 'L' && pointsAgainst - pointsFor < 5) fun.heartbreakLosses++;
+                            });
+                        });
+                    }
 
                     weekMatchups.forEach(matchup => {
                         const roster = rosters.find(r => r.roster_id === matchup.roster_id);
@@ -3060,6 +3168,24 @@
                     // Calculate variance
                     const variance = scores.reduce((sum, score) => sum + Math.pow(score - avg, 2), 0) / scores.length;
                     stats.consistency[userId].variance = Math.sqrt(variance);
+                }
+                
+                // Streaks from the game-by-game results (oldest first)
+                const streak = stats.streaks[userId];
+                let run = 0, previous = null;
+                streak.results.forEach(result => {
+                    run = result === previous ? run + 1 : 1;
+                    previous = result;
+                    if (result === 'W') streak.longestWin = Math.max(streak.longestWin, run);
+                    if (result === 'L') streak.longestLose = Math.max(streak.longestLose, run);
+                });
+                streak.current = previous ? `${previous}${run}` : '—';
+                stats.seasonPerformance[userId].longestWinStreak = streak.longestWin;
+                stats.seasonPerformance[userId].longestLoseStreak = streak.longestLose;
+                
+                // Consecutive playoff trips, counting back from the latest finished season
+                for (let i = completedSeasons.length - 1; i >= 0 && streak.playoffSeasons.includes(completedSeasons[i]); i--) {
+                    streak.playoffStreak++;
                 }
             });
 
@@ -3257,9 +3383,144 @@
             
             html += `</tbody></table></div>`;
 
+            const managerName = userId => userMap[userId]?.display_name || userMap[userId]?.username || 'Unknown';
+            const record = (w, l, t) => `${w}–${l}${t ? `–${t}` : ''}`;
+            const activeIds = Object.keys(stats.funStats).filter(id => userMap[id] && stats.funStats[id].wins + stats.funStats[id].losses + stats.funStats[id].ties > 0);
+
+            // Luck Index
+            const luckRows = activeIds
+                .map(id => ({ id, ...stats.funStats[id], luck: stats.funStats[id].wins + stats.funStats[id].ties / 2 - stats.funStats[id].expectedWins }))
+                .sort((a, b) => b.luck - a.luck);
+            html += `
+                <div class="stat-section">
+                    <h2 class="section-title">🍀 Luck Index</h2>
+                    <p class="section-note">"All-play" is each team's record if it had played every other team every week. Luck is actual wins minus the wins that weekly scoring deserved.</p>
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>Manager</th>
+                                <th>Record</th>
+                                <th>All-Play</th>
+                                <th>Expected Wins</th>
+                                <th>Luck</th>
+                                <th>Lucky Wins</th>
+                                <th>Unlucky Losses</th>
+                                <th>Heartbreaks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${luckRows.map(r => `
+                                <tr ${r.id === currentUserId ? 'class="current-user-row"' : ''}>
+                                    <td data-label="Manager">${teamLabel(userMap[r.id], escapeHTML(managerName(r.id)))}</td>
+                                    <td data-label="Record">${record(r.wins, r.losses, r.ties)}</td>
+                                    <td data-label="All-Play">${record(r.allPlayWins, r.allPlayLosses, r.allPlayTies)}</td>
+                                    <td data-label="Expected Wins">${r.expectedWins.toFixed(1)}</td>
+                                    <td data-label="Luck"><span class="luck ${r.luck >= 0.05 ? 'lucky' : r.luck <= -0.05 ? 'unlucky' : ''}">${r.luck > 0 ? '+' : ''}${r.luck.toFixed(1)}</span></td>
+                                    <td data-label="Lucky Wins">${r.luckyWins}</td>
+                                    <td data-label="Unlucky Losses">${r.shouldveWon}</td>
+                                    <td data-label="Heartbreaks">${r.heartbreakLosses}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <p class="race-footnote">Lucky win: won with a below-median score that week. Unlucky loss: lost with an above-median score. Heartbreak: lost by under 5 points. Regular season only.</p>
+                </div>
+            `;
+
+            // Streaks
+            const streakRows = activeIds
+                .map(id => ({ id, ...stats.streaks[id] }))
+                .sort((a, b) => b.longestWin - a.longestWin || a.longestLose - b.longestLose);
+            html += `
+                <div class="stat-section">
+                    <h2 class="section-title">🔥 Streaks</h2>
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>Manager</th>
+                                <th>Current</th>
+                                <th>Longest Win Streak</th>
+                                <th>Longest Losing Streak</th>
+                                <th>Playoff Streak</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${streakRows.map(r => `
+                                <tr ${r.id === currentUserId ? 'class="current-user-row"' : ''}>
+                                    <td data-label="Manager">${teamLabel(userMap[r.id], escapeHTML(managerName(r.id)))}</td>
+                                    <td data-label="Current"><span class="streak-badge ${r.current[0] === 'W' ? 'win' : r.current[0] === 'L' ? 'loss' : ''}">${r.current}</span></td>
+                                    <td data-label="Longest Win Streak">${r.longestWin}</td>
+                                    <td data-label="Longest Losing Streak">${r.longestLose}</td>
+                                    <td data-label="Playoff Streak">${r.playoffStreak} ${r.playoffStreak === 1 ? 'season' : 'seasons'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <p class="race-footnote">Win and losing streaks run across seasons. Regular season only.</p>
+                </div>
+            `;
+
+            // Head-to-head, one manager at a time
+            headToHeadContext = { stats, userMap, currentUserId };
+            const managerOptions = activeIds
+                .sort((a, b) => managerName(a).localeCompare(managerName(b)))
+                .map(id => `<option value="${id}" ${id === currentUserId ? 'selected' : ''}>${escapeHTML(managerName(id))}</option>`)
+                .join('');
+            html += `
+                <div class="stat-section">
+                    <h2 class="section-title">⚔️ Head-to-Head</h2>
+                    <div class="h2h-picker">
+                        <label for="h2hManager">Show records for</label>
+                        <select id="h2hManager" onchange="renderHeadToHead(this.value)">${managerOptions}</select>
+                    </div>
+                    <div id="h2hTable"></div>
+                </div>
+            `;
+
             html += '</div>';
             
             historicalTab.innerHTML = html;
+            if (activeIds.length) renderHeadToHead(activeIds.includes(currentUserId) ? currentUserId : activeIds[0]);
+        }
+
+        let headToHeadContext = null;
+
+        function renderHeadToHead(userId) {
+            const { stats, userMap, currentUserId } = headToHeadContext;
+            const managerName = id => userMap[id]?.display_name || userMap[id]?.username || 'Unknown';
+            const rows = Object.entries(stats.headToHead[userId] || {})
+                .map(([oppId, r]) => ({ oppId, ...r, games: r.wins + r.losses + r.ties }))
+                .sort((a, b) => (b.wins - b.losses) - (a.wins - a.losses) || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst));
+
+            document.getElementById('h2hTable').innerHTML = rows.length ? `
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>Opponent</th>
+                            <th>Record</th>
+                            <th>Points For</th>
+                            <th>Points Against</th>
+                            <th>Avg Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(r => {
+                            const margin = (r.pointsFor - r.pointsAgainst) / r.games;
+                            const tone = r.wins > r.losses ? 'win' : r.wins < r.losses ? 'loss' : '';
+                            return `
+                                <tr ${r.oppId === currentUserId ? 'class="current-user-row"' : ''}>
+                                    <td data-label="Opponent">${teamLabel(userMap[r.oppId], escapeHTML(managerName(r.oppId)))}</td>
+                                    <td data-label="Record"><span class="streak-badge ${tone}">${r.wins}–${r.losses}${r.ties ? `–${r.ties}` : ''}</span></td>
+                                    <td data-label="Points For">${r.pointsFor.toFixed(1)}</td>
+                                    <td data-label="Points Against">${r.pointsAgainst.toFixed(1)}</td>
+                                    <td data-label="Avg Margin">${margin > 0 ? '+' : ''}${margin.toFixed(1)}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+                <p class="race-footnote">Regular-season meetings only.</p>
+            ` : '<p class="section-note">No regular-season games yet.</p>';
         }
 
         function switchTab(tabName) {
