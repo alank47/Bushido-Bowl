@@ -3369,8 +3369,8 @@
                 // Store current league ID to prevent infinite loops
                 previousLeagueId = leagueId;
                 
-                // Move to previous season (if it exists)
-                leagueId = league.previous_league_id;
+                // Move to previous season (if it exists; Sleeper uses "0" for none)
+                leagueId = league.previous_league_id && league.previous_league_id !== '0' ? league.previous_league_id : null;
                 
                 // Break if no previous league or we've seen this ID before
                 if (!leagueId || leagueId === previousLeagueId) {
@@ -5242,6 +5242,18 @@
         const freshSeen = key => ({ key, deals: new Set(), gets: new Set(), batch: 0 });
         
         async function loadTradeIdeas() {
+            try {
+                await buildTradeIdeas();
+            } catch (error) {
+                console.error('Trade ideas error:', error);
+                const target = document.getElementById('warTrades');
+                if (target) target.innerHTML = `<div class="error">Couldn't build trade ideas: ${escapeHTML(error.message)}</div>`;
+                const button = document.getElementById('warNewIdeas');
+                if (button) button.disabled = false;
+            }
+        }
+        
+        async function buildTradeIdeas() {
             const data = warRoomData;
             const team = data?.teams.find(t => t.userId === warRoomTeam);
             const target = document.getElementById('warTrades');
@@ -5346,6 +5358,7 @@
             return `<ol class="trade-ideas">${ideas.map(idea => {
                 const reasons = [];
                 idea.get.forEach(p => {
+                    if (p.position === 'PICK') return; // picks get their own reasons below
                     const slot = slotOf(idea.myAfter, p);
                     const before = team.grades[p.position]?.rank;
                     const after = rankAmong(p.position, idea.myAfter.grades[p.position].value, team.userId);
