@@ -10,6 +10,8 @@ const ALLOWED_ORIGINS = ['https://bushidobowl.org', 'https://www.bushidobowl.org
 const MODEL = 'claude-opus-5-5';
 const MAX_ASSETS_PER_TEAM = 20;
 const MAX_TEXT_LENGTH = 100;
+const DYNASTY_FIRST_SEASON = 2025;
+const DYNASTY_FINAL_SEASON = 2029;
 
 export default {
     async fetch(request, env) {
@@ -93,50 +95,106 @@ function cleanNumber(value) {
     return Math.round(number);
 }
 
+// Optional fields: dropped rather than rejected if missing or malformed
+function optionalNumber(value) {
+    const number = Number(value);
+    return value != null && Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function optionalText(value) {
+    return typeof value === 'string' && value.length > 0 ? value.slice(0, 10) : null;
+}
+
+function parseAsset(asset) {
+    const age = optionalNumber(asset.age);
+    return {
+        desc: cleanText(asset.desc),
+        age: age && age < 50 ? Math.round(age) : null,
+        position: optionalText(asset.position),
+    };
+}
+
 function parseTeam(team) {
     if (!team || !Array.isArray(team.assets)) throw new Error('missing team');
     if (team.assets.length > MAX_ASSETS_PER_TEAM) throw new Error('too many assets');
+    const rank = optionalNumber(team.standing?.rank);
+    const points = optionalNumber(team.standing?.points);
     return {
         name: cleanText(team.name),
         total: cleanNumber(team.total),
-        assets: team.assets.map(asset => ({ desc: cleanText(asset.desc) })),
+        assets: team.assets.map(parseAsset),
+        standing: rank && points != null ? { rank: Math.round(rank), points: Math.round(points * 10) / 10 } : null,
     };
 }
 
 function parseTrade(body) {
+    const season = optionalNumber(body.season);
+    const totalTeams = optionalNumber(body.totalTeams);
     return {
         tradeDate: cleanText(body.tradeDate),
+        season: season >= DYNASTY_FIRST_SEASON && season <= DYNASTY_FINAL_SEASON ? Math.round(season) : null,
+        totalTeams: totalTeams ? Math.round(totalTeams) : null,
         team1: parseTeam(body.team1),
         team2: parseTeam(body.team2),
     };
 }
 
-function buildPrompt({ tradeDate, team1, team2 }) {
+// The NFL season still in play - January/February belong to the previous year's season
+function currentSeason() {
+    const now = new Date();
+    return now.getUTCMonth() < 2 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
+}
+
+// "Bijan Robinson (RB, 24 now, 27 in 2029)" - ages are today's ages from Sleeper
+function describeAsset(asset) {
+    const details = [];
+    if (asset.position) details.push(asset.position);
+    if (asset.age) {
+        const yearsLeft = Math.max(0, DYNASTY_FINAL_SEASON - currentSeason());
+        details.push(yearsLeft > 0 ? `${asset.age} now, ${asset.age + yearsLeft} in ${DYNASTY_FINAL_SEASON}` : `age ${asset.age}`);
+    }
+    return details.length ? `${asset.desc} (${details.join(', ')})` : asset.desc;
+}
+
+function describeStanding(team, totalTeams) {
+    if (!team.standing) return null;
+    const outOf = totalTeams ? ` of ${totalTeams}` : '';
+    return `${team.name} is currently #${team.standing.rank}${outOf} in the dynasty standings with ${team.standing.points} points`;
+}
+
+function buildPrompt({ tradeDate, season, totalTeams, team1, team2 }) {
     const diff = Math.abs(team1.total - team2.total);
     const larger = Math.max(team1.total, team2.total);
     const diffPercent = larger > 0 ? (diff / larger * 100).toFixed(1) : 0;
     const winner = team1.total > team2.total ? team1.name : team2.name;
     const fairnessDetail = diffPercent > 5 ? `${winner} got ${diffPercent}% more value` : 'Even value';
 
+    const seasonsLeft = season ? DYNASTY_FINAL_SEASON - season + 1 : null;
+    const timing = season
+        ? `This trade happened during the ${season} season - season ${season - DYNASTY_FIRST_SEASON + 1} of 5, with ${seasonsLeft} season${seasonsLeft === 1 ? '' : 's'} (including this one) left until the dynasty ends after ${DYNASTY_FINAL_SEASON}.`
+        : `The dynasty runs from ${DYNASTY_FIRST_SEASON} through the end of the ${DYNASTY_FINAL_SEASON} season.`;
+    const standings = [describeStanding(team1, totalTeams), describeStanding(team2, totalTeams)].filter(Boolean);
+
     return `You are Mike Wilcoxon - a 30-something father and AMC Theaters GM analyzing a dynasty fantasy football trade. You're educated and pragmatic, the voice of reason in the group. You're also a huge Kanye fan, Survivor superfan, A24 film enthusiast, and long-suffering Chargers supporter.
 
 TRADE DETAILS:
 Date: ${tradeDate}
-${team1.name} receives: ${team1.assets.map(a => a.desc).join(', ')} (Total Value: ${team1.total})
-${team2.name} receives: ${team2.assets.map(a => a.desc).join(', ')} (Total Value: ${team2.total})
-Trade Value: ${fairnessDetail}
+${team1.name} receives: ${team1.assets.map(a => describeAsset(a)).join(', ')} (Total Value: ${team1.total})
+${team2.name} receives: ${team2.assets.map(a => describeAsset(a)).join(', ')} (Total Value: ${team2.total})
+Trade Value: ${fairnessDetail} (values are current dynasty trade values, not values at the time of the trade)
 
 CONTEXT:
-- 5-year dynasty league with a growing prize pot
-- Winner after 5 years takes the whole pot
+- 5-year dynasty league, ${DYNASTY_FIRST_SEASON}-${DYNASTY_FINAL_SEASON}. ${timing}
+- Separate from each season's championship, there's a 5-year prize pot. When the ${DYNASTY_FINAL_SEASON} season ends, the team with the most dynasty points takes it.
+- Dynasty points pile up every season from regular season wins, weekly high scores, playoff berths, championship appearances, and titles. So being good every year matters as much as one big peak, and a team that is bad for two seasons digs a hole it has to climb out of.
+${standings.length ? standings.map(s => `- ${s}`).join('\n') + '\n' : ''}- Draft picks only help the pot race once the drafted player starts producing, so picks in the final years of the dynasty are worth less for the pot than their trade value suggests.
 - League history: There's a legendary "Mahomes Curse" - you got fleeced trading Mahomes to Garret years ago, and the curse says Garret can't win a championship until he trades Mahomes away
 
 YOUR TASK:
-Write a concise trade analysis (1-2 short paragraphs max) covering:
-- Who won and why (be honest about value AND fit)
-- How this impacts the 5-year pot race (dynasty is about sustained excellence)
-- Win-now vs rebuild implications
-- Any risks or upside worth noting
+Write a concise trade analysis in 2-3 short paragraphs:
+1. Who won and why (be honest about value AND fit), plus win-now vs rebuild implications.
+2. A long-run outlook for the 5-year pot. Think through how each team's side of the deal looks year by year through ${DYNASTY_FINAL_SEASON}: who is still in their prime by then, who hits an age cliff (especially RBs around 27-28), and when any picks would turn into real production. Say plainly which team this trade helps more in the race for the pot, even if that's a different team than the one who won on value today.
+3. Optional, only if it's worth saying: any big risk or upside.
 
 STYLE:
 - Pragmatic and insightful, not wordy

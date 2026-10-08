@@ -2085,6 +2085,13 @@
                 // Sort by points
                 leaderboard.sort((a, b) => b.points - a.points);
                 
+                // Save standings by display name so trade analysis can reference them
+                const standings = {};
+                leaderboard.forEach((entry, index) => {
+                    standings[entry.displayName] = { rank: index + 1, points: entry.points };
+                });
+                sessionStorage.setItem('dynastyStandings', JSON.stringify(standings));
+                
                 // Update user stats
                 const userEntry = leaderboard.find(entry => entry.userId === currentUser.user_id);
                 if (userEntry) {
@@ -3578,6 +3585,13 @@
                 const team1AssetEls = card.querySelectorAll('[data-team="1"] .trade-asset');
                 const team2AssetEls = card.querySelectorAll('[data-team="2"] .trade-asset');
                 
+                // Age and position help judge long-term value (picks have neither)
+                const playerDetails = assetEl => {
+                    const playerId = assetEl.querySelector('[data-player-id]')?.getAttribute('data-player-id');
+                    const player = playerId && allPlayers[playerId];
+                    return player ? { age: player.age, position: player.position } : {};
+                };
+                
                 let team1Total = 0;
                 let team2Total = 0;
                 const team1Assets = [];
@@ -3586,19 +3600,19 @@
                 // Gather team 1 assets and calculate total
                 team1AssetEls.forEach(assetEl => {
                     const name = assetEl.querySelector('.asset-name').textContent;
-                    const valueText = assetEl.querySelector('.value-then')?.textContent || '0';
+                    const valueText = assetEl.querySelector('.value-now')?.textContent || '0';
                     const value = parseInt(valueText.replace(/,/g, '')) || 0;
                     team1Total += value;
-                    team1Assets.push({ desc: name, value: value });
+                    team1Assets.push({ desc: name, value: value, ...playerDetails(assetEl) });
                 });
                 
                 // Gather team 2 assets and calculate total
                 team2AssetEls.forEach(assetEl => {
                     const name = assetEl.querySelector('.asset-name').textContent;
-                    const valueText = assetEl.querySelector('.value-then')?.textContent || '0';
+                    const valueText = assetEl.querySelector('.value-now')?.textContent || '0';
                     const value = parseInt(valueText.replace(/,/g, '')) || 0;
                     team2Total += value;
-                    team2Assets.push({ desc: name, value: value });
+                    team2Assets.push({ desc: name, value: value, ...playerDetails(assetEl) });
                 });
                 
                 if (team1Assets.length === 0 && team2Assets.length === 0) {
@@ -3608,7 +3622,7 @@
                 const tradeDate = new Date(trade.created).toLocaleDateString();
                 
                 // Call Claude API for Mike Wilcoxon analysis
-                const analysis = await generateTradeAnalysis(team1, team1Assets, team2, team2Assets, tradeDate, team1Total, team2Total);
+                const analysis = await generateTradeAnalysis(team1, team1Assets, team2, team2Assets, tradeDate, team1Total, team2Total, trade.season);
                 
                 // Display analysis
                 analyzeBtn.remove();
@@ -3633,9 +3647,15 @@
             }
         }
 
-        async function generateTradeAnalysis(team1, team1Assets, team2, team2Assets, tradeDate, team1Value, team2Value) {
+        async function generateTradeAnalysis(team1, team1Assets, team2, team2Assets, tradeDate, team1Value, team2Value, season) {
             // AI analysis via the Cloudflare Worker, which builds the prompt and calls Claude
             try {
+                // Current dynasty standings (saved by the leaderboard) give context for the long-run pot race
+                let standings = {};
+                try {
+                    standings = JSON.parse(sessionStorage.getItem('dynastyStandings')) || {};
+                } catch (e) {}
+                
                 const response = await fetch('https://mikestrade.alank-42a.workers.dev/', {
                     method: 'POST',
                     headers: {
@@ -3643,8 +3663,10 @@
                     },
                     body: JSON.stringify({
                         tradeDate,
-                        team1: { name: team1, assets: team1Assets, total: team1Value },
-                        team2: { name: team2, assets: team2Assets, total: team2Value }
+                        season,
+                        totalTeams: Object.keys(standings).length || undefined,
+                        team1: { name: team1, assets: team1Assets, total: team1Value, standing: standings[team1] },
+                        team2: { name: team2, assets: team2Assets, total: team2Value, standing: standings[team2] }
                     })
                 });
 
