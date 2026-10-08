@@ -600,6 +600,269 @@
             color: var(--sumi);
         }
 
+        /* ---------- Clickable leaderboard rows ---------- */
+        .table-hint {
+            font-size: 0.85rem;
+            color: var(--sumi-soft);
+            margin: 0 0 10px;
+        }
+
+        .team-row {
+            cursor: pointer;
+        }
+
+        .team-row:focus-visible {
+            outline: 2px solid var(--ai);
+            outline-offset: -2px;
+        }
+
+        /* ---------- Roster panel ---------- */
+        body:has(.roster-dialog[open]) {
+            overflow: hidden;
+        }
+
+        .roster-dialog {
+            width: min(640px, calc(100vw - 32px));
+            max-height: calc(100vh - 48px);
+            margin: auto;
+            padding: 0;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            background: var(--card);
+            color: var(--sumi);
+            box-shadow: inset 0 0 0 5px var(--card), inset 0 0 0 6px var(--line-soft), 0 30px 80px -20px rgba(29, 26, 23, 0.6);
+        }
+
+        .roster-dialog::backdrop {
+            background: rgba(29, 26, 23, 0.55);
+            backdrop-filter: blur(2px);
+        }
+
+        .roster-dialog[open] {
+            animation: fadeIn 0.3s ease;
+        }
+
+        .roster-dialog-inner {
+            position: relative;
+            padding: 30px 30px 24px;
+        }
+
+        .roster-dialog-inner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #a67c2e, var(--kin) 30%, #e2c47e 50%, var(--kin) 70%, #a67c2e);
+        }
+
+        .roster-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 40px;
+            height: 40px;
+            min-height: 0;
+            padding: 0;
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 50%;
+            color: var(--sumi);
+            font-family: var(--font-body);
+            font-size: 1rem;
+            letter-spacing: 0;
+            box-shadow: none;
+        }
+
+        .roster-close:hover {
+            background: var(--sumi);
+            color: var(--card);
+            transform: none;
+        }
+
+        .roster-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding-right: 48px;
+            margin-bottom: 22px;
+        }
+
+        .roster-header .team-avatar {
+            width: 64px;
+            height: 64px;
+            box-shadow: 0 0 0 2px var(--kin);
+        }
+
+        .roster-title {
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .roster-manager {
+            color: var(--sumi-soft);
+            font-size: 0.95rem;
+        }
+
+        .roster-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border-top: 2px solid var(--sumi);
+            border-bottom: 1px solid var(--line);
+            margin-bottom: 22px;
+        }
+
+        .roster-summary > div {
+            padding: 12px 10px;
+            text-align: center;
+        }
+
+        .roster-summary > div + div {
+            border-left: 1px solid var(--line);
+        }
+
+        .roster-summary-label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--sumi-soft);
+        }
+
+        .roster-summary-value {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        .roster-group {
+            margin-bottom: 20px;
+        }
+
+        .roster-group-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .roster-group-title::before {
+            content: '';
+            width: 10px;
+            height: 10px;
+            background: var(--shu);
+            border-radius: 2px;
+            transform: rotate(45deg);
+        }
+
+        .roster-group-title span {
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--sumi-soft);
+        }
+
+        .roster-list {
+            list-style: none;
+        }
+
+        .roster-player {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 9px 0;
+            border-bottom: 1px dashed var(--line);
+        }
+
+        .roster-player:last-child {
+            border-bottom: none;
+        }
+
+        .roster-slot {
+            flex-shrink: 0;
+            width: 46px;
+            padding: 4px 0;
+            border-radius: 2px;
+            text-align: center;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--card);
+            background: var(--sumi-soft);
+        }
+
+        .roster-slot.pos-qb { background: var(--shu); }
+        .roster-slot.pos-rb { background: var(--matsu); }
+        .roster-slot.pos-wr { background: var(--ai); }
+        .roster-slot.pos-te { background: var(--kin-text); }
+        .roster-slot.pos-empty { background: transparent; color: var(--sumi-soft); border: 1px dashed var(--line); }
+
+        .roster-player-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .roster-player-name {
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .roster-player-meta {
+            font-size: 0.8rem;
+            color: var(--sumi-soft);
+        }
+
+        .roster-empty {
+            color: var(--sumi-soft);
+            font-style: italic;
+        }
+
+        .roster-player-value {
+            font-family: var(--font-display);
+            font-weight: 800;
+            color: var(--matsu);
+        }
+
+        .roster-footnote {
+            font-size: 0.78rem;
+            color: var(--sumi-soft);
+            text-align: center;
+            margin-top: 6px;
+        }
+
+        @media (max-width: 768px) {
+            .roster-dialog {
+                width: 100vw;
+                max-width: 100vw;
+                max-height: 92vh;
+                margin: auto 0 0;
+                border-radius: 10px 10px 0 0;
+            }
+
+            .roster-dialog-inner {
+                padding: 24px 16px 20px;
+            }
+
+            .roster-title {
+                font-size: 1.3rem;
+            }
+
+            .roster-summary-value {
+                font-size: 1.15rem;
+            }
+        }
+
         /* ---------- Loading, errors ---------- */
         .loading {
             text-align: center;
@@ -1601,6 +1864,14 @@
         </div>
     </div>
 
+    <!-- Roster panel, opened from the leaderboard -->
+    <dialog id="rosterDialog" class="roster-dialog" aria-labelledby="rosterTitle">
+        <div class="roster-dialog-inner">
+            <button type="button" class="roster-close" onclick="closeRoster()" aria-label="Close roster">✕</button>
+            <div id="rosterContent"></div>
+        </div>
+    </dialog>
+
     <script>
         // Dynasty Tracker v2.2 - Build 2026-04-11
         console.log('Dynasty Tracker v2.2 initialized - Future pick values, trade totals, fairness analysis');
@@ -1824,6 +2095,7 @@
         function logout() {
             sessionStorage.clear();
             fantasyCalcQuery = null;
+            playerValuesCache = null;
             document.getElementById('loginSection').style.display = 'block';
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('username').value = '';
@@ -2151,6 +2423,7 @@
                             ${seasons.length} season${seasons.length > 1 ? 's' : ''} tracked
                         </div>
                     </div>
+                    <p class="table-hint">Select a team to see its roster</p>
                     <table class="leaderboard-table">
                         <thead>
                             <tr>
@@ -2184,7 +2457,7 @@
                     const breakdownText = breakdownParts.join(' • ') || 'No stats yet';
                     
                     tableHTML += `
-                        <tr ${highlightClass}>
+                        <tr ${highlightClass} class="team-row" data-user-id="${entry.userId}" tabindex="0" role="button" aria-label="View ${escapeHTML(entry.teamName)} roster">
                             <td data-label="Rank"><span class="rank ${rankClass}">${rank}</span></td>
                             <td data-label="Team"><span class="team-label">${avatarImg(entry.avatar)}<span class="team-name">${entry.teamName}</span></span></td>
                             <td data-label="Points"><span class="points">${entry.points.toFixed(1)}</span></td>
@@ -2744,6 +3017,183 @@
                 location.reload();
             }
         }
+
+        // ==================== ROSTER VIEW ====================
+        
+        function escapeHTML(text) {
+            return String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        
+        // The full NFL player list is several MB, so load it once per visit
+        let sleeperPlayersCache = null;
+        async function getSleeperPlayers() {
+            if (!sleeperPlayersCache) {
+                const response = await fetch('https://api.sleeper.app/v1/players/nfl');
+                if (!response.ok) throw new Error('Failed to load player data');
+                sleeperPlayersCache = await response.json();
+            }
+            return sleeperPlayersCache;
+        }
+        
+        // Dynasty values by Sleeper player ID (depends on league format, so cleared on logout)
+        let playerValuesCache = null;
+        async function getPlayerValues() {
+            if (!playerValuesCache) {
+                const values = {};
+                (await fetchFantasyCalcValues()).forEach(item => {
+                    const id = item.player?.sleeperId;
+                    if (id) values[id] = item.value || 0;
+                });
+                if (Object.keys(values).length === 0) return values; // don't cache a failed load
+                playerValuesCache = values;
+            }
+            return playerValuesCache;
+        }
+        
+        const SLOT_LABELS = { SUPER_FLEX: 'SF', FLEX: 'FLEX', REC_FLEX: 'W/T', WRRB_FLEX: 'W/R', IDP_FLEX: 'IDP' };
+        const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+        
+        let rosterRequestId = 0;
+        
+        async function openRoster(userId) {
+            const requestId = ++rosterRequestId;
+            const dialog = document.getElementById('rosterDialog');
+            const content = document.getElementById('rosterContent');
+            const users = JSON.parse(sessionStorage.getItem('users') || '[]');
+            const user = users.find(u => u.user_id === userId);
+            const teamName = user?.metadata?.team_name || user?.display_name || 'Unknown Team';
+            const manager = user?.display_name || user?.username || '';
+            
+            content.innerHTML = `
+                <div class="roster-header">
+                    ${avatarImg(teamAvatarUrl(user))}
+                    <div>
+                        <h2 id="rosterTitle" class="roster-title">${escapeHTML(teamName)}</h2>
+                        <div class="roster-manager">${escapeHTML(manager)}</div>
+                    </div>
+                </div>
+                <div id="rosterBody">
+                    <div class="loading"><div class="spinner"></div><p>Loading roster...</p></div>
+                </div>
+            `;
+            if (!dialog.open) dialog.showModal();
+            
+            try {
+                const leagueId = sessionStorage.getItem('leagueId');
+                const [league, rosters, players, values] = await Promise.all([
+                    fetchLeague(leagueId),
+                    fetchLeagueRosters(leagueId),
+                    getSleeperPlayers(),
+                    getPlayerValues()
+                ]);
+                if (requestId !== rosterRequestId) return; // another team was opened meanwhile
+                
+                const roster = rosters.find(r => r.owner_id === userId);
+                if (!roster) throw new Error('No roster found for this team');
+                document.getElementById('rosterBody').innerHTML = renderRoster(league, roster, players, values);
+            } catch (error) {
+                if (requestId !== rosterRequestId) return;
+                document.getElementById('rosterBody').innerHTML = `<div class="error">Couldn't load this roster: ${escapeHTML(error.message)}</div>`;
+            }
+        }
+        
+        function closeRoster() {
+            document.getElementById('rosterDialog').close();
+        }
+        
+        function renderRoster(league, roster, players, values) {
+            const describe = id => {
+                const player = players[id] || {};
+                const position = player.position || (isNaN(id) ? 'DEF' : '?');
+                return {
+                    name: player.first_name ? `${player.first_name} ${player.last_name}` : `Player ${id}`,
+                    position,
+                    team: player.team || 'FA',
+                    age: position === 'DEF' ? null : player.age,
+                    value: values[id] || 0
+                };
+            };
+            
+            const starterIds = roster.starters || [];
+            const reserveIds = roster.reserve || [];
+            const taxiIds = roster.taxi || [];
+            const allIds = roster.players || [];
+            const notBench = new Set([...starterIds, ...reserveIds, ...taxiIds]);
+            
+            // Starters line up with the league's lineup slots (empty slots come through as "0")
+            const slots = (league.roster_positions || []).filter(p => !['BN', 'IR', 'TAXI'].includes(p));
+            const starters = slots.map((slot, i) => ({
+                slot: SLOT_LABELS[slot] || slot,
+                player: starterIds[i] && starterIds[i] !== '0' ? describe(starterIds[i]) : null
+            }));
+            
+            const byPositionThenValue = (a, b) => {
+                const pa = POSITION_ORDER.indexOf(a.position), pb = POSITION_ORDER.indexOf(b.position);
+                return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb) || b.value - a.value;
+            };
+            const bench = allIds.filter(id => !notBench.has(id)).map(describe).sort(byPositionThenValue);
+            const taxi = taxiIds.map(describe).sort(byPositionThenValue);
+            const reserve = reserveIds.map(describe).sort(byPositionThenValue);
+            
+            // Summary
+            const everyone = allIds.map(describe);
+            const totalValue = everyone.reduce((sum, p) => sum + p.value, 0);
+            const ages = everyone.map(p => p.age).filter(Boolean);
+            const avgAge = ages.length ? (ages.reduce((a, b) => a + b, 0) / ages.length).toFixed(1) : '—';
+            const wins = roster.settings?.wins || 0;
+            const losses = roster.settings?.losses || 0;
+            const ties = roster.settings?.ties || 0;
+            
+            const playerRow = (label, p) => `
+                <li class="roster-player">
+                    <span class="roster-slot pos-${escapeHTML((p?.position || 'empty').toLowerCase())}">${escapeHTML(label)}</span>
+                    ${p ? `
+                        <span class="roster-player-info">
+                            <span class="roster-player-name">${escapeHTML(p.name)}</span>
+                            <span class="roster-player-meta">${escapeHTML([p.position, p.team, p.age ? `${p.age} yrs` : null].filter(Boolean).join(' · '))}</span>
+                        </span>
+                        <span class="roster-player-value">${p.value ? p.value.toLocaleString() : '—'}</span>
+                    ` : `<span class="roster-player-info roster-empty">Empty</span>`}
+                </li>
+            `;
+            const group = (title, rows) => rows.length ? `
+                <section class="roster-group">
+                    <h3 class="roster-group-title">${title} <span>${rows.length}</span></h3>
+                    <ul class="roster-list">${rows.join('')}</ul>
+                </section>
+            ` : '';
+            
+            return `
+                <div class="roster-summary">
+                    <div><span class="roster-summary-label">${escapeHTML(league.season)} Record</span><span class="roster-summary-value">${wins}–${losses}${ties ? `–${ties}` : ''}</span></div>
+                    <div><span class="roster-summary-label">Roster Value</span><span class="roster-summary-value">${totalValue.toLocaleString()}</span></div>
+                    <div><span class="roster-summary-label">Avg Age</span><span class="roster-summary-value">${avgAge}</span></div>
+                </div>
+                ${group('Starters', starters.map(s => playerRow(s.slot, s.player)))}
+                ${group('Bench', bench.map(p => playerRow(p.position, p)))}
+                ${group('Taxi Squad', taxi.map(p => playerRow(p.position, p)))}
+                ${group('Injured Reserve', reserve.map(p => playerRow(p.position, p)))}
+                <p class="roster-footnote">Values are current FantasyCalc dynasty values for this league's format.</p>
+            `;
+        }
+        
+        // Leaderboard rows open the roster (click, Enter or Space)
+        document.getElementById('leaderboardContent').addEventListener('click', event => {
+            const row = event.target.closest('tr[data-user-id]');
+            if (row) openRoster(row.dataset.userId);
+        });
+        document.getElementById('leaderboardContent').addEventListener('keydown', event => {
+            const row = event.target.closest('tr[data-user-id]');
+            if (row && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault();
+                openRoster(row.dataset.userId);
+            }
+        });
+        
+        // Clicking the dimmed backdrop closes the roster
+        document.getElementById('rosterDialog').addEventListener('click', event => {
+            if (event.target.id === 'rosterDialog') closeRoster();
+        });
 
         // ==================== TRADE TRACKER FUNCTIONS ====================
 
