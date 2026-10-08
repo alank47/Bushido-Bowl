@@ -3275,6 +3275,14 @@
             warRoomData = null;
             warRoomFetch = null;
             requestCache = {};
+            potOddsCache = null;
+            leaderboardReady = false;
+            leaderboardError = null;
+            leagueArchive = [];
+            lastSeasonMeta = [];
+            lastLeaderboard = [];
+            allTimeH2H = {};
+            liveWeekData = null;
             clearTimeout(liveRefreshTimer);
             document.getElementById('liveSection').hidden = true;
             document.getElementById('recapSection').hidden = true;
@@ -3408,6 +3416,9 @@
             const users = JSON.parse(sessionStorage.getItem('users'));
             const currentUser = JSON.parse(sessionStorage.getItem('sleeperUser'));
             const leagueId = sessionStorage.getItem('leagueId');
+            
+            leaderboardReady = false;
+            leaderboardError = null;
             
             // Show loading
             document.getElementById('leaderboardContent').innerHTML = `
@@ -3721,10 +3732,13 @@
                 if (liveWeekData) renderLiveWeek();
                 renderHallOfShoguns();
                 loadMikeRecap(race);
+                leaderboardReady = true;
                 if (document.getElementById('warTab')?.classList.contains('active')) loadWarRoom();
                 
             } catch (error) {
                 console.error('Error loading leaderboard:', error);
+                leaderboardError = error;
+                if (document.getElementById('warTab')?.classList.contains('active')) loadWarRoom();
                 document.getElementById('leaderboardContent').innerHTML = `
                     <div class="error">Failed to load leaderboard: ${error.message}</div>
                 `;
@@ -4694,6 +4708,8 @@
         let lastLeaderboard = [];
         let allTimeH2H = {};
         let potOddsCache = null;
+        let leaderboardReady = false;   // true once the leaderboard (and everything built from it) is done
+        let leaderboardError = null;
         
         // Every finished game in a season: [{ week, playoffs, a: {userId, points}, b: {userId, points} }]
         function seasonGames(entry, { regularOnly = false } = {}) {
@@ -4798,7 +4814,11 @@
         async function loadWarRoom() {
             const tab = document.getElementById('warTab');
             startWarRoomFetch().catch(() => {}); // start downloading right away; errors surface below
-            if (!lastLeaderboard.length || !potOddsCache) {
+            if (leaderboardError) {
+                tab.innerHTML = `<div class="error">Couldn't open the War Room: ${escapeHTML(leaderboardError.message)}</div>`;
+                return;
+            }
+            if (!leaderboardReady) {
                 tab.innerHTML = '<div class="loading"><div class="spinner"></div><p>Waiting for the leaderboard to finish loading...</p></div>';
                 return; // the leaderboard calls back here when it's done
             }
@@ -4838,7 +4858,9 @@
         function buildWarRoomData(league, rosters, players, dynasty, now) {
             const slots = (league.roster_positions || []).filter(p => !['BN', 'IR', 'TAXI'].includes(p));
             const season = Number(league.season);
-            const finalSeason = (lastSeasonMeta[0]?.season || season) + getSettings().dynastyLength - 1;
+            // The pot's final season; a league whose pot is already over plans three seasons ahead instead
+            const potFinal = (lastSeasonMeta[0]?.season || season) + getSettings().dynastyLength - 1;
+            const finalSeason = potFinal >= season ? potFinal : season + 3;
             const yearsToFinal = Math.max(0, finalSeason - season);
             
             const teams = rosters.filter(r => r.owner_id).map(r => {
@@ -4880,10 +4902,13 @@
             // Fall back to a cautious slope if the league's own data is too noisy to say
             data.pointsPerValue = varX > 0 && cov > 0 ? cov / varX : 0.5 * POT_SIM.trueSd / sdX;
             
+            // Window from pot odds; leagues with no active pot fall back to starting-lineup rank
+            const n = teams.length;
             teams.forEach(t => {
-                const odds = potOddsCache?.now?.[t.userId] ?? 0;
-                t.odds = odds;
-                t.window = odds >= 10 ? 'Contender' : odds < 3 ? 'Rebuilder' : 'Bubble';
+                const odds = potOddsCache?.now?.[t.userId];
+                t.odds = odds ?? null;
+                if (odds != null) t.window = odds >= 10 ? 'Contender' : odds < 3 ? 'Rebuilder' : 'Bubble';
+                else t.window = t.nowRank <= Math.ceil(n / 3) ? 'Contender' : t.nowRank > Math.ceil(2 * n / 3) ? 'Rebuilder' : 'Bubble';
             });
             return data;
         }
@@ -5068,7 +5093,7 @@
                         </div>
                     </div>
                     <div class="race-facts">
-                        <div><span class="race-fact-value">${formatOdds(team.odds)}</span><span class="race-fact-label">Chance to win the pot</span></div>
+                        ${team.odds != null ? `<div><span class="race-fact-value">${formatOdds(team.odds)}</span><span class="race-fact-label">Chance to win the pot</span></div>` : ''}
                         <div><span class="race-fact-value">#${team.nowRank}</span><span class="race-fact-label">Starting lineup this season</span></div>
                         <div><span class="race-fact-value">#${team.futureRank}</span><span class="race-fact-label">Roster built for ${data.finalSeason}</span></div>
                         <div><span class="race-fact-value">${team.coreAge ? team.coreAge.toFixed(1) : '—'}</span><span class="race-fact-label">Core age now${team.coreAge && data.yearsToFinal ? `, ${ageThen.toFixed(1)} in ${data.finalSeason}` : ''}</span></div>
@@ -5095,7 +5120,7 @@
                 const shortlist = findTrades(data, team, 8);
                 await tradePotImpact(data, team, shortlist);
                 if (warRoomTeam !== team.userId) return; // a different team was picked meanwhile
-                const ideas = (team.window === 'Rebuilder' ? shortlist : shortlist.filter(i => i.potAfter >= i.potBefore)).slice(0, 5);
+                const ideas = (team.window === 'Rebuilder' ? shortlist : shortlist.filter(i => i.potAfter === undefined || i.potAfter >= i.potBefore)).slice(0, 5);
                 const target = document.getElementById('warTrades');
                 if (target && warRoomTeam === team.userId) target.innerHTML = renderTradeIdeas(data, team, ideas, fmt);
             }, 30);
@@ -5103,18 +5128,20 @@
         
         function gamePlan(data, team) {
             const lines = [];
-            const odds = formatOdds(team.odds);
+            const odds = team.odds != null ? `${formatOdds(team.odds)} pot odds` : `the #${team.nowRank} starting lineup`;
             const needs = GRADE_POSITIONS.filter(pos => team.grades[pos].rank >= 8).sort((a, b) => team.grades[b].rank - team.grades[a].rank);
             const strengths = GRADE_POSITIONS.filter(pos => team.grades[pos].rank <= 4 && team.grades[pos].spare.some(p => p.dynasty >= 1000));
             const seasonsLeft = data.yearsToFinal + 1;
             const names = list => list.map(p => escapeHTML(p.name)).join(', ');
             
             if (team.window === 'Contender') {
-                lines.push(`<strong>Contender</strong> with ${odds} pot odds. Every win is worth ${SCORING.regularSeasonWin} dynasty points, so buying production now pays off directly.`);
+                lines.push(`<strong>Contender</strong> with ${odds}. Every win is worth ${SCORING.regularSeasonWin} dynasty points, so buying production now pays off directly.`);
             } else if (team.window === 'Rebuilder') {
-                lines.push(`<strong>Long shot</strong> at ${odds} right now, but ${seasonsLeft} season${seasonsLeft === 1 ? '' : 's'} remain. Build a roster that peaks in ${data.finalSeason - 1}–${data.finalSeason}.`);
+                lines.push(team.odds != null
+                    ? `<strong>Long shot</strong> at ${odds} right now, but ${seasonsLeft} season${seasonsLeft === 1 ? '' : 's'} remain. Build a roster that peaks in ${data.finalSeason - 1}–${data.finalSeason}.`
+                    : `<strong>Rebuilding</strong> with ${odds}. Build a roster that peaks in the next two to three seasons.`);
             } else {
-                lines.push(`<strong>On the bubble</strong> at ${odds}. One or two smart upgrades could move you into the top tier.`);
+                lines.push(`<strong>On the bubble</strong> with ${odds}. One or two smart upgrades could move you into the top tier.`);
             }
             if (needs.length) {
                 const pos = needs[0];
