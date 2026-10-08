@@ -804,6 +804,24 @@
         .roster-slot.pos-te { background: var(--kin-text); }
         .roster-slot.pos-empty { background: transparent; color: var(--sumi-soft); border: 1px dashed var(--line); }
 
+        /* Player headshot; the paper circle stays if Sleeper has no photo */
+        .roster-photo {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: var(--washi-deep);
+            border: 1px solid var(--line);
+        }
+
+        .roster-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center top;
+        }
+
         .roster-player-info {
             flex: 1;
             min-width: 0;
@@ -860,6 +878,19 @@
 
             .roster-summary-value {
                 font-size: 1.15rem;
+            }
+
+            .roster-player {
+                gap: 10px;
+            }
+
+            .roster-slot {
+                width: 40px;
+            }
+
+            .roster-photo {
+                width: 34px;
+                height: 34px;
             }
         }
 
@@ -3106,6 +3137,7 @@
                 const player = players[id] || {};
                 const position = player.position || (isNaN(id) ? 'DEF' : '?');
                 return {
+                    id,
                     name: player.first_name ? `${player.first_name} ${player.last_name}` : `Player ${id}`,
                     position,
                     team: player.team || 'FA',
@@ -3144,9 +3176,22 @@
             const losses = roster.settings?.losses || 0;
             const ties = roster.settings?.ties || 0;
             
+            // Sleeper headshots by player ID; defenses (IDs like "BUF") use the team logo
+            const photoUrl = p => {
+                if (!/^\w+$/.test(p.id)) return null;
+                return p.position === 'DEF'
+                    ? `https://sleepercdn.com/images/team_logos/nfl/${p.id.toLowerCase()}.png`
+                    : `https://sleepercdn.com/content/nfl/players/thumb/${p.id}.jpg`;
+            };
+            const photo = p => {
+                const url = p && photoUrl(p);
+                return `<span class="roster-photo">${url ? `<img src="${url}" alt="" onerror="this.remove()">` : ''}</span>`;
+            };
+            
             const playerRow = (label, p) => `
                 <li class="roster-player">
                     <span class="roster-slot pos-${escapeHTML((p?.position || 'empty').toLowerCase())}">${escapeHTML(label)}</span>
+                    ${photo(p)}
                     ${p ? `
                         <span class="roster-player-info">
                             <span class="roster-player-name">${escapeHTML(p.name)}</span>
