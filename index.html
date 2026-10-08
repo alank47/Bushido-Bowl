@@ -600,6 +600,300 @@
             color: var(--sumi);
         }
 
+        /* ---------- Pot race ---------- */
+        .race-intro {
+            color: var(--sumi-soft);
+            max-width: 62ch;
+            margin: -10px 0 24px;
+        }
+
+        .race-timeline {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 10px;
+            margin-bottom: 26px;
+        }
+
+        .race-season {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 3px;
+            background: var(--washi);
+        }
+
+        .race-season.current {
+            border-color: var(--shu);
+            box-shadow: inset 0 3px 0 var(--shu);
+        }
+
+        .race-season.upcoming {
+            opacity: 0.6;
+        }
+
+        .race-season-year {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 800;
+        }
+
+        .race-season-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--line-soft);
+            overflow: hidden;
+        }
+
+        .race-season-bar span {
+            display: block;
+            height: 100%;
+            background: var(--sumi);
+        }
+
+        .race-season.current .race-season-bar span {
+            background: var(--shu);
+        }
+
+        .race-season-status {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--sumi-soft);
+            letter-spacing: 0.04em;
+        }
+
+        .race-facts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            border-top: 2px solid var(--sumi);
+            border-bottom: 1px solid var(--line);
+        }
+
+        .race-facts > div {
+            padding: 16px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .race-facts > div + div {
+            border-left: 1px solid var(--line);
+        }
+
+        .race-fact-value {
+            font-family: var(--font-display);
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .race-fact-label {
+            font-size: 0.85rem;
+            color: var(--sumi-soft);
+        }
+
+        .race-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 20px;
+            font-size: 0.82rem;
+            color: var(--sumi-soft);
+            margin: -8px 0 18px;
+        }
+
+        .race-legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .race-legend i {
+            display: inline-block;
+            width: 18px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        .key-now { background: var(--shu); }
+        .key-projected { background: var(--kin); }
+        .key-max { background: var(--line-soft); border: 1px solid var(--line); }
+        .key-leader { width: 2px !important; height: 14px !important; background: var(--sumi); }
+
+        .race-chart {
+            list-style: none;
+        }
+
+        .race-row {
+            display: grid;
+            grid-template-columns: minmax(180px, 260px) 1fr 92px;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .race-row:last-child {
+            border-bottom: none;
+        }
+
+        .race-row.is-you .race-team-name {
+            color: var(--shu);
+        }
+
+        .race-row.is-out {
+            opacity: 0.5;
+        }
+
+        .race-team {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .race-rank {
+            width: 22px;
+            flex-shrink: 0;
+            text-align: right;
+            font-family: var(--font-display);
+            font-weight: 800;
+            color: var(--sumi-soft);
+        }
+
+        .race-team .team-avatar {
+            width: 30px;
+            height: 30px;
+        }
+
+        .race-team-name {
+            font-family: var(--font-display);
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .race-track {
+            position: relative;
+            height: 22px;
+            background: transparent;
+        }
+
+        .race-track > span {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            border-radius: 0 3px 3px 0;
+        }
+
+        .race-bar-max {
+            background: var(--line-soft);
+            box-shadow: inset 0 0 0 1px var(--line);
+        }
+
+        .race-bar-projected {
+            top: 5px !important;
+            bottom: 5px !important;
+            background: var(--kin);
+            opacity: 0.85;
+        }
+
+        .race-bar-now {
+            background: var(--shu);
+        }
+
+        .race-leader-line {
+            width: 2px;
+            top: -4px !important;
+            bottom: -4px !important;
+            background: var(--sumi);
+            border-radius: 0 !important;
+        }
+
+        .race-numbers {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            line-height: 1.2;
+        }
+
+        .race-numbers strong {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+        }
+
+        .race-numbers span {
+            font-size: 0.8rem;
+            color: var(--kin-text);
+            font-weight: 700;
+        }
+
+        .race-table td {
+            white-space: nowrap;
+        }
+
+        .race-table .team-avatar {
+            width: 28px;
+            height: 28px;
+        }
+
+        .race-proj-rank {
+            color: var(--sumi-soft);
+            font-size: 0.85em;
+        }
+
+        .race-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 2px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .race-status.lead { background: var(--shu); color: var(--card); }
+        .race-status.alive { background: rgba(61, 107, 76, 0.12); color: var(--matsu); }
+        .race-status.out { background: var(--line-soft); color: var(--sumi-soft); }
+
+        .race-footnote {
+            font-size: 0.8rem;
+            color: var(--sumi-soft);
+            margin-top: 16px;
+        }
+
+        .race-table-wrap {
+            overflow-x: auto;
+        }
+
+        @media (max-width: 768px) {
+            .race-row {
+                grid-template-columns: 1fr auto;
+                grid-template-areas: "team numbers" "track track";
+                gap: 6px 12px;
+            }
+
+            .race-team { grid-area: team; }
+            .race-numbers { grid-area: numbers; }
+            .race-track { grid-area: track; height: 16px; }
+
+            .race-facts > div + div {
+                border-left: none;
+                border-top: 1px solid var(--line);
+            }
+
+            .race-fact-value {
+                font-size: 1.5rem;
+            }
+
+            .race-table td {
+                white-space: normal;
+            }
+        }
+
         /* ---------- Clickable leaderboard rows ---------- */
         .table-hint {
             font-size: 0.85rem;
@@ -1747,6 +2041,7 @@
             <!-- Tab Navigation -->
             <div class="tab-navigation">
                 <button class="tab-btn active" onclick="switchTab('overview')">Dynasty Overview</button>
+                <button class="tab-btn" onclick="switchTab('race')">Pot Race</button>
                 <button class="tab-btn" onclick="switchTab('historical')">Historical Stats</button>
                 <button class="tab-btn" onclick="switchTab('trades')">Mike's Trade Tracker™</button>
                 <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
@@ -1784,6 +2079,14 @@
                     </div>
                 </div>
             </div>
+            </div>
+
+            <!-- Pot Race Tab -->
+            <div id="raceTab" class="tab-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading the pot race...</p>
+                </div>
             </div>
 
             <!-- Historical Stats Tab -->
@@ -2279,9 +2582,19 @@
                     }
                 });
                 
+                // Per-season detail for the pot race view
+                const seasonMeta = [];
+                const COUNTED = ['wins', 'highScores', 'playoffBerths', 'championshipAppearances', 'titles'];
+                
                 // Process each season
                 for (const seasonData of seasons) {
                     const { leagueId: seasonLeagueId, season, league } = seasonData;
+                    
+                    // Snapshot totals so this season's share can be worked out afterwards
+                    const before = {};
+                    Object.keys(userStats).forEach(id => {
+                        before[id] = COUNTED.map(key => userStats[id][key]);
+                    });
                     
                     // Fetch rosters for this season
                     const seasonRosters = await fetchLeagueRosters(seasonLeagueId);
@@ -2392,6 +2705,26 @@
                             }
                         });
                     }
+                    
+                    // This season's counts = totals now minus the snapshot
+                    Object.keys(userStats).forEach(id => {
+                        const stats = userStats[id];
+                        stats.bySeason = stats.bySeason || {};
+                        const seasonCounts = {};
+                        COUNTED.forEach((key, i) => {
+                            seasonCounts[key] = stats[key] - (before[id]?.[i] || 0);
+                        });
+                        stats.bySeason[season] = seasonCounts;
+                    });
+                    
+                    const regularWeeks = playoffWeekStart - 1;
+                    seasonMeta.push({
+                        season,
+                        complete: league.status === 'complete',
+                        regularWeeks,
+                        weeksPlayed: league.status === 'complete' ? regularWeeks : Math.min(lastFinishedWeek, regularWeeks),
+                        started: !['pre_draft', 'drafting'].includes(league.status)
+                    });
                 }
                 
                 console.log('=== FINAL USER STATS ===');
@@ -2507,6 +2840,8 @@
                 `;
                 
                 document.getElementById('leaderboardContent').innerHTML = tableHTML;
+                
+                renderPotRace(buildPotRace(seasonMeta, leaderboard));
                 
             } catch (error) {
                 console.error('Error loading leaderboard:', error);
@@ -2938,6 +3273,7 @@
             buttons.forEach(btn => {
                 if ((tabName === 'overview' && btn.textContent.includes('Overview')) ||
                     (tabName === 'historical' && btn.textContent.includes('Historical')) ||
+                    (tabName === 'race' && btn.textContent.includes('Pot Race')) ||
                     (tabName === 'trades' && btn.textContent.includes('Trade')) ||
                     (tabName === 'settings' && btn.textContent.includes('Settings'))) {
                     btn.classList.add('active');
@@ -2961,6 +3297,8 @@
                 } else {
                     console.log('Historical stats already loaded');
                 }
+            } else if (tabName === 'race') {
+                document.getElementById('raceTab').classList.add('active');
             } else if (tabName === 'trades') {
                 document.getElementById('tradesTab').classList.add('active');
             } else if (tabName === 'settings') {
@@ -3047,6 +3385,186 @@
                 localStorage.removeItem('dynastySettings');
                 location.reload();
             }
+        }
+
+        // ==================== POT RACE ====================
+        
+        // Works out what's left in the 5-year race: points still available, gaps, pace and who can still win
+        function buildPotRace(seasonMeta, leaderboard) {
+            const currentSettings = getSettings();
+            const firstSeason = seasonMeta[0].season;
+            const finalSeason = firstSeason + currentSettings.dynastyLength - 1;
+            const current = seasonMeta[seasonMeta.length - 1];
+            
+            const weeklyMax = SCORING.regularSeasonWin + SCORING.highestWeeklyScore;
+            const postseasonMax = SCORING.playoffBerth + SCORING.championshipAppearance + SCORING.titleWin;
+            const fullSeasonMax = current.regularWeeks * weeklyMax + postseasonMax;
+            
+            // What's still to play: rest of the current season plus every season through the final one
+            const futureSeasons = Math.max(0, finalSeason - current.season);
+            const currentWeeksLeft = current.complete ? 0 : current.regularWeeks - current.weeksPlayed;
+            const weeksLeft = currentWeeksLeft + futureSeasons * current.regularWeeks;
+            const postseasonsLeft = (current.complete ? 0 : 1) + futureSeasons;
+            const maxRemaining = weeksLeft * weeklyMax + postseasonsLeft * postseasonMax;
+            
+            const weeksPlayedTotal = seasonMeta.reduce((sum, m) => sum + m.weeksPlayed, 0);
+            const completedSeasons = seasonMeta.filter(m => m.complete).map(m => m.season);
+            const leaderPoints = leaderboard[0]?.points || 0;
+            
+            const teams = leaderboard.map((entry, index) => {
+                const b = entry.breakdown;
+                const seasonPoints = {};
+                seasonMeta.forEach(m => {
+                    const c = b.bySeason?.[m.season];
+                    seasonPoints[m.season] = c ? scoreCounts(c) : 0;
+                });
+                
+                // Pace: weekly points per regular-season week played, postseason points per finished season
+                const weeklyPoints = b.wins * SCORING.regularSeasonWin + b.highScores * SCORING.highestWeeklyScore;
+                const weeklyRate = weeksPlayedTotal ? weeklyPoints / weeksPlayedTotal : 0;
+                const postseasonPoints = completedSeasons.reduce((sum, season) => {
+                    const c = b.bySeason?.[season];
+                    return sum + (c ? c.playoffBerths * SCORING.playoffBerth + c.championshipAppearances * SCORING.championshipAppearance + c.titles * SCORING.titleWin : 0);
+                }, 0);
+                const postseasonRate = completedSeasons.length ? postseasonPoints / completedSeasons.length : 0;
+                const projected = entry.points + weeklyRate * weeksLeft + postseasonRate * postseasonsLeft;
+                
+                const maxPossible = entry.points + maxRemaining;
+                return {
+                    ...entry,
+                    rank: index + 1,
+                    seasonPoints,
+                    gap: leaderPoints - entry.points,
+                    projected,
+                    maxPossible,
+                    eliminated: maxPossible < leaderPoints
+                };
+            });
+            
+            // Projected finishing order
+            [...teams].sort((a, b) => b.projected - a.projected).forEach((team, i) => {
+                team.projectedRank = i + 1;
+            });
+            
+            return { seasonMeta, firstSeason, finalSeason, current, futureSeasons, maxRemaining, fullSeasonMax, teams };
+        }
+        
+        function scoreCounts(c) {
+            return c.wins * SCORING.regularSeasonWin +
+                c.highScores * SCORING.highestWeeklyScore +
+                c.playoffBerths * SCORING.playoffBerth +
+                c.championshipAppearances * SCORING.championshipAppearance +
+                c.titles * SCORING.titleWin;
+        }
+        
+        function renderPotRace(race) {
+            const { firstSeason, finalSeason, current, maxRemaining, fullSeasonMax, teams } = race;
+            const currentUser = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}');
+            const fmt = n => (Math.round(n * 10) / 10).toLocaleString(undefined, { maximumFractionDigits: 1 });
+            const seasonsShown = race.seasonMeta.map(m => m.season);
+            
+            // Timeline: one segment per dynasty season
+            const timeline = [];
+            for (let season = firstSeason; season <= finalSeason; season++) {
+                const meta = race.seasonMeta.find(m => m.season === season);
+                let status = 'Upcoming', progress = 0, stateClass = 'upcoming';
+                if (meta?.complete) {
+                    status = 'Complete'; progress = 100; stateClass = 'complete';
+                } else if (meta?.started) {
+                    status = meta.weeksPlayed >= meta.regularWeeks ? 'Playoffs' : `Week ${meta.weeksPlayed} of ${meta.regularWeeks}`;
+                    progress = Math.round(meta.weeksPlayed / meta.regularWeeks * 100);
+                    stateClass = 'current';
+                } else if (meta) {
+                    status = 'Drafting';
+                    stateClass = 'current';
+                }
+                timeline.push(`
+                    <li class="race-season ${stateClass}">
+                        <span class="race-season-year">${season}</span>
+                        <span class="race-season-bar"><span style="width: ${progress}%"></span></span>
+                        <span class="race-season-status">${status}</span>
+                    </li>
+                `);
+            }
+            
+            const leader = teams[0];
+            const alive = teams.filter(t => !t.eliminated).length;
+            const projectedLeader = teams.find(t => t.projectedRank === 1);
+            const scaleMax = Math.max(...teams.map(t => Math.max(t.maxPossible, t.projected)), 1);
+            const pct = n => Math.max(0, Math.min(100, n / scaleMax * 100)).toFixed(2);
+            
+            const raceRows = teams.map(t => `
+                <li class="race-row ${t.userId === currentUser.user_id ? 'is-you' : ''} ${t.eliminated ? 'is-out' : ''}">
+                    <span class="race-team">
+                        <span class="race-rank">${t.rank}</span>
+                        ${avatarImg(t.avatar)}
+                        <span class="race-team-name">${escapeHTML(t.teamName)}</span>
+                    </span>
+                    <span class="race-track" role="img" aria-label="${escapeHTML(t.teamName)}: ${fmt(t.points)} points now, on pace for ${fmt(t.projected)}, at most ${fmt(t.maxPossible)}">
+                        <span class="race-bar-max" style="width: ${pct(t.maxPossible)}%"></span>
+                        <span class="race-bar-projected" style="width: ${pct(t.projected)}%"></span>
+                        <span class="race-bar-now" style="width: ${pct(t.points)}%"></span>
+                        <span class="race-leader-line" style="left: ${pct(leader.points)}%"></span>
+                    </span>
+                    <span class="race-numbers"><strong>${fmt(t.points)}</strong><span>→ ${fmt(t.projected)}</span></span>
+                </li>
+            `).join('');
+            
+            const tableRows = teams.map(t => `
+                <tr ${t.userId === currentUser.user_id ? 'class="current-user-row"' : ''}>
+                    <td data-label="Team"><span class="team-label">${avatarImg(t.avatar)}<span>${escapeHTML(t.teamName)}</span></span></td>
+                    ${seasonsShown.map(season => `<td data-label="${season}">${fmt(t.seasonPoints[season])}</td>`).join('')}
+                    <td data-label="Total"><strong>${fmt(t.points)}</strong></td>
+                    <td data-label="Behind Leader">${t.gap > 0 ? `−${fmt(t.gap)}` : 'Leader'}</td>
+                    <td data-label="On Pace For"><span>${fmt(t.projected)} <span class="race-proj-rank">(#${t.projectedRank})</span></span></td>
+                    <td data-label="Max Possible">${fmt(t.maxPossible)}</td>
+                    <td data-label="Status">${t.eliminated ? '<span class="race-status out">Eliminated</span>' : t.rank === 1 ? '<span class="race-status lead">Leading</span>' : '<span class="race-status alive">Alive</span>'}</td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('raceTab').innerHTML = `
+                <div class="stat-section">
+                    <h2 class="section-title">The Road to ${finalSeason}</h2>
+                    <p class="race-intro">After the ${finalSeason} season, the team with the most dynasty points takes the pot. Every season adds up to <strong>${fmt(fullSeasonMax)}</strong> points per team, so it's far from over.</p>
+                    <ol class="race-timeline">${timeline.join('')}</ol>
+                    <div class="race-facts">
+                        <div><span class="race-fact-value">${fmt(maxRemaining)}</span><span class="race-fact-label">Points still available to every team</span></div>
+                        <div><span class="race-fact-value">${fmt(leader.points)}</span><span class="race-fact-label">${escapeHTML(leader.teamName)} leads</span></div>
+                        <div><span class="race-fact-value">${alive} of ${teams.length}</span><span class="race-fact-label">Teams that can still win</span></div>
+                        <div><span class="race-fact-value">${fmt(projectedLeader.projected)}</span><span class="race-fact-label">${escapeHTML(projectedLeader.teamName)} on pace to win</span></div>
+                    </div>
+                </div>
+                
+                <div class="stat-section">
+                    <h2 class="section-title">The Race</h2>
+                    <div class="race-legend">
+                        <span><i class="key-now"></i>Points now</span>
+                        <span><i class="key-projected"></i>On pace for</span>
+                        <span><i class="key-max"></i>Most still possible</span>
+                        <span><i class="key-leader"></i>Leader today</span>
+                    </div>
+                    <ol class="race-chart">${raceRows}</ol>
+                </div>
+                
+                <div class="stat-section">
+                    <h2 class="section-title">Standings by Season</h2>
+                    <table class="stats-table race-table">
+                        <thead>
+                            <tr>
+                                <th>Team</th>
+                                ${seasonsShown.map(season => `<th>${season}${season === current.season && !current.complete ? '*' : ''}</th>`).join('')}
+                                <th>Total</th>
+                                <th>Behind</th>
+                                <th>On Pace For</th>
+                                <th>Max Possible</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                    <p class="race-footnote">${!current.complete ? `* ${current.season} is in progress; playoff points are added when the season ends. ` : ''}"On pace for" projects each team's weekly scoring rate and average postseason haul across the seasons left. "Max possible" assumes a team wins every remaining game, weekly high score and title.</p>
+                </div>
+            `;
         }
 
         // ==================== ROSTER VIEW ====================
