@@ -1910,6 +1910,7 @@
         .roster-slot.pos-rb { background: var(--matsu); }
         .roster-slot.pos-wr { background: var(--ai); }
         .roster-slot.pos-te { background: var(--kin-text); }
+        .roster-slot.pos-pick { background: var(--kin); color: var(--sumi); }
         .roster-slot.pos-empty { background: transparent; color: var(--sumi-soft); border: 1px dashed var(--line); }
 
         /* Player headshot; the paper circle stays if Sleeper has no photo */
@@ -4803,10 +4804,13 @@
             const response = await fetch(`https://api.fantasycalc.com/values/current?${query}`);
             if (!response.ok) throw new Error('Could not load player values');
             const values = {};
+            const picks = {};
             (await response.json()).forEach(item => {
                 const id = item.player?.sleeperId;
-                if (id) values[id] = item.value || 0;
+                if (item.player?.position === 'PICK') picks[item.player.name] = item.value || 0; // picks carry their own "FP_" ids
+                else if (id) values[id] = item.value || 0;
             });
+            Object.defineProperty(values, 'picks', { value: picks }); // pick values ride along, not as a player id
             return values;
         }
         
@@ -4815,7 +4819,8 @@
             if (!warRoomFetch) {
                 const leagueId = sessionStorage.getItem('leagueId');
                 warRoomFetch = Promise.all([
-                    fetchLeague(leagueId), fetchLeagueRosters(leagueId), getSleeperPlayers(), fetchFantasyCalc(true), fetchFantasyCalc(false)
+                    fetchLeague(leagueId), fetchLeagueRosters(leagueId), getSleeperPlayers(), fetchFantasyCalc(true), fetchFantasyCalc(false),
+                    fetch(`https://api.sleeper.app/v1/league/${leagueId}/traded_picks`).then(r => (r.ok ? r.json() : [])).catch(() => [])
                 ]).catch(error => { warRoomFetch = null; throw error; });
             }
             return warRoomFetch;
@@ -4838,8 +4843,8 @@
             tab.innerHTML = '<div class="loading"><div class="spinner"></div><p>Scouting every roster in the league...</p></div>';
             warRoomLoading = (async () => {
                 try {
-                    const [league, rosters, players, dynasty, now] = await startWarRoomFetch();
-                    warRoomData = buildWarRoomData(league, rosters, players, dynasty, now);
+                    const [league, rosters, players, dynasty, now, tradedPicks] = await startWarRoomFetch();
+                    warRoomData = buildWarRoomData(league, rosters, players, dynasty, now, tradedPicks);
                     renderWarRoom();
                 } catch (error) {
                     console.error('War Room error:', error);
@@ -4865,7 +4870,7 @@
             return { total, lineup, used };
         }
         
-        function buildWarRoomData(league, rosters, players, dynasty, now) {
+        function buildWarRoomData(league, rosters, players, dynasty, now, tradedPicks = []) {
             const slots = (league.roster_positions || []).filter(p => !['BN', 'IR', 'TAXI'].includes(p));
             const season = Number(league.season);
             // The pot's final season; a league whose pot is already over plans three seasons ahead instead
@@ -4892,6 +4897,11 @@
             });
             
             const data = { slots, season, finalSeason, yearsToFinal, teams };
+            teams.forEach(t => evaluateTeam(data, t));
+            
+            // Future draft picks: lineup ranks (above) feed the projected draft slot, then picks join each roster
+            [...teams].sort((a, b) => b.nowTotal - a.nowTotal).forEach((t, i) => { t.nowRank = i + 1; });
+            addDraftPicks(data, league, rosters, tradedPicks, dynasty.picks || {});
             teams.forEach(t => evaluateTeam(data, t));
             
             // Position ranks across the league (1 = best)
@@ -4923,6 +4933,74 @@
             return data;
         }
         
+        const ordinal = n => `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`;
+        
+        // Each team's future picks (next three drafts): its own unless traded, plus any it acquired.
+        // Values from FantasyCalc; the nearest draft is priced early/mid/late from the original team's projected finish.
+        function addDraftPicks(data, league, rosters, tradedPicks, pickValues) {
+            const rounds = league.settings?.draft_rounds || 4;
+            const draftPending = ['pre_draft', 'drafting'].includes(league.status);
+            const firstDraft = draftPending ? data.season : data.season + 1;
+            const draftSeasons = [firstDraft, firstDraft + 1, firstDraft + 2];
+            const n = data.teams.length;
+            
+            // Projected finish: current record blended with lineup strength (worst teams pick first)
+            const byRoster = {};
+            data.teams.forEach(t => { byRoster[t.rosterId] = t; });
+            const projected = [...data.teams].map(t => {
+                const st = rosters.find(r => r.roster_id === t.rosterId)?.settings || {};
+                const games = (st.wins || 0) + (st.losses || 0) + (st.ties || 0);
+                const winPct = games ? ((st.wins || 0) + (st.ties || 0) / 2) / games : 0.5;
+                return { t, score: winPct * 0.5 + (1 - (t.nowRank - 1) / Math.max(n - 1, 1)) * 0.5 };
+            }).sort((a, b) => a.score - b.score);
+            const tierOf = {};
+            projected.forEach(({ t }, i) => { tierOf[t.rosterId] = i < n / 3 ? 'Early' : i < 2 * n / 3 ? 'Mid' : 'Late'; });
+            
+            const valueFor = (season, round, tier) => {
+                const base = `${season} ${ordinal(round)}`;
+                if (season === firstDraft && pickValues[`${base} (${tier})`] !== undefined) return pickValues[`${base} (${tier})`];
+                if (pickValues[base] !== undefined) return pickValues[base];
+                // Rounds or years FantasyCalc doesn't list: step down from the nearest listed value
+                const known = Object.entries(pickValues).filter(([name]) => name.startsWith(`${season} `) && !name.includes('('));
+                return known.length ? Math.min(...known.map(([, v]) => v)) * 0.8 : 0;
+            };
+            
+            // Current owner of every pick: start with "each team owns its own", then apply trades
+            const owner = {};
+            draftSeasons.forEach(season => {
+                for (let round = 1; round <= rounds; round++) {
+                    data.teams.forEach(t => { owner[`${season}|${round}|${t.rosterId}`] = t.rosterId; });
+                }
+            });
+            tradedPicks.forEach(tp => {
+                const key = `${tp.season}|${tp.round}|${tp.roster_id}`;
+                if (key in owner) owner[key] = tp.owner_id;
+            });
+            
+            Object.entries(owner).forEach(([key, ownerRosterId]) => {
+                const [season, round, origRosterId] = key.split('|').map(Number);
+                const holder = byRoster[ownerRosterId];
+                const original = byRoster[origRosterId];
+                if (!holder || !original) return;
+                const tier = season === firstDraft ? tierOf[origRosterId] : null;
+                const yearsOfUse = data.finalSeason - season + 1;
+                holder.roster.push({
+                    id: `pick-${key}`,
+                    name: `${season} ${ordinal(round)}${origRosterId === ownerRosterId ? '' : ` (${original.name})`}`,
+                    position: 'PICK',
+                    nflTeam: tier ? `Projected ${tier.toLowerCase()}` : 'Draft pick',
+                    age: null,
+                    now: 0,
+                    dynasty: valueFor(season, round, tier || 'Mid'),
+                    // A late pick has few seasons left to help the pot (a 2029 rookie gets one)
+                    futureFactor: Math.min(1, Math.max(0.25, yearsOfUse / 3)),
+                    pickSeason: season,
+                    pickRound: round,
+                    unavailable: true // never in a lineup
+                });
+            });
+        }
+        
         // Lineup value now, long-term value weighted toward players still young at the end of the dynasty, and position grades
         function evaluateTeam(data, team) {
             const active = team.roster.filter(p => !p.unavailable);
@@ -4931,7 +5009,7 @@
             team.nowTotal = lineup.total;
             team.futureTotal = team.roster.reduce((sum, p) => sum + futureValue(p, data.yearsToFinal), 0);
             
-            const top = [...team.roster].sort((a, b) => b.dynasty - a.dynasty).slice(0, 8).filter(p => p.age);
+            const top = team.roster.filter(p => p.age).sort((a, b) => b.dynasty - a.dynasty).slice(0, 8);
             const weight = top.reduce((s, p) => s + p.dynasty, 0) || 1;
             team.coreAge = top.reduce((s, p) => s + p.age * p.dynasty, 0) / weight;
             
@@ -4952,6 +5030,7 @@
         
         // Dynasty value discounted for players who'll be past their prime by the final season
         function futureValue(p, yearsToFinal) {
+            if (p.futureFactor != null) return p.dynasty * p.futureFactor;
             if (!p.age) return p.dynasty;
             const ageThen = p.age + yearsToFinal;
             const over = Math.max(0, ageThen - peakEnd(p.position));
@@ -4963,10 +5042,14 @@
         // Search 1-for-1, 2-for-1 and 1-for-2 deals that are fair and help both sides the way their windows need
         // seen = { deals, gets }: deals already shown and players already offered as targets (for "New ideas")
         function findTrades(data, team, limit = 5, seen = null, partnerId = null) {
-            const pickPool = t => [...t.roster]
-                .filter(p => (p.dynasty >= 400 || p.now >= 400) && GRADE_POSITIONS.includes(p.position))
-                .sort((a, b) => Math.max(b.dynasty, b.now) - Math.max(a.dynasty, a.now))
-                .slice(0, 14);
+            const pickPool = t => {
+                const players = t.roster
+                    .filter(p => (p.dynasty >= 400 || p.now >= 400) && GRADE_POSITIONS.includes(p.position))
+                    .sort((a, b) => Math.max(b.dynasty, b.now) - Math.max(a.dynasty, a.now))
+                    .slice(0, 14);
+                const picks = t.roster.filter(p => p.position === 'PICK' && p.dynasty >= 600).sort((a, b) => b.dynasty - a.dynasty).slice(0, 4);
+                return players.concat(picks);
+            };
             const combos = list => {
                 const out = list.map(p => [p]);
                 for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) out.push([list[i], list[j]]);
@@ -5004,11 +5087,12 @@
                 const theirNeeds = needsOf(partner);
                 mine.forEach(give => theirs.forEach(get => {
                     if (give.length === 2 && get.length === 2) return; // keep deals simple
+                    if (give.every(p => p.position === 'PICK') && get.every(p => p.position === 'PICK')) return; // no pick-for-pick swaps
                     if (strips(give, get, myNeeds) || strips(get, give, theirNeeds)) return;
                     const giveValue = starValue(give), getValue = starValue(get);
                     if (!giveValue || !getValue) return;
                     if (Math.abs(giveValue - getValue) / Math.max(giveValue, getValue) > WAR_TRADE_FAIRNESS) return;
-                    if (get.some(p => p.unavailable)) return;
+                    if (get.some(p => p.unavailable && p.position !== 'PICK')) return;
                     const myAfter = after(team, give, get);
                     const theirAfter = after(partner, get, give);
                     const myGain = gain(team, team, myAfter), theirGain = gain(partner, partner, theirAfter);
@@ -5253,7 +5337,7 @@
                         <span class="roster-player-name">${escapeHTML(p.name)}</span>
                         <span class="roster-player-meta">${escapeHTML([p.nflTeam, p.age ? `${p.age} yrs` : null].filter(Boolean).join(' · '))}</span>
                     </span>
-                    <span class="idea-values"><span title="Dynasty value">${fmt(p.dynasty)}</span><small>${p.now ? `${fmt(p.now)} now` : 'not scoring now'}</small></span>
+                    <span class="idea-values"><span title="Dynasty value">${fmt(p.dynasty)}</span><small>${p.position === 'PICK' ? 'dynasty value' : p.now ? `${fmt(p.now)} now` : 'not scoring now'}</small></span>
                 </li>
             `;
             const slotOf = (teamAfter, p) => teamAfter.lineup.lineup.find(x => x.player.id === p.id)?.slot;
@@ -5276,7 +5360,18 @@
                     const list = arr => arr.map(p => escapeHTML(p.name)).join(' and ');
                     reasons.push(`The cost: ${list(startersGiven)} ${startersGiven.length === 1 ? 'starts' : 'start'} for you now${stepIns.length ? `, so ${list(stepIns)} would move into your lineup` : ''}.`);
                 }
+                idea.get.filter(p => p.position === 'PICK').forEach(p => {
+                    const seasonsLeft = data.finalSeason - p.pickSeason + 1;
+                    reasons.push(team.window === 'Contender'
+                        ? `${escapeHTML(p.name)} is extra trade currency you can flip later for help now.`
+                        : `${escapeHTML(p.name)} adds draft capital: that rookie gets ${seasonsLeft} season${seasonsLeft === 1 ? '' : 's'} to produce before ${data.finalSeason}.`);
+                });
+                idea.give.filter(p => p.position === 'PICK').forEach(p => {
+                    const seasonsLeft = data.finalSeason - p.pickSeason + 1;
+                    reasons.push(`${escapeHTML(p.name)} costs you nothing this season${seasonsLeft <= 1 ? `, and a ${p.pickSeason} rookie has at most one season to help before the pot is decided` : ''}.`);
+                });
                 idea.give.forEach(p => {
+                    if (p.position === 'PICK') return;
                     if (!slotOf(team, p)) reasons.push(`${escapeHTML(p.name)} isn't in your best lineup now, so you lose little this season.`);
                     else if (p.age && p.age + data.yearsToFinal > peakEnd(p.position)) reasons.push(`${escapeHTML(p.name)} will be ${p.age + data.yearsToFinal} by ${data.finalSeason}, past a typical ${p.position}'s prime, so his value only goes down from here.`);
                 });
@@ -5286,7 +5381,7 @@
                 if (!partnerWhy.length && idea.theirGain.now > 0) partnerWhy.push('it improves their starting lineup');
                 if (partnerWhy.length) reasons.push(`Why ${escapeHTML(idea.partner.name)} says yes: ${partnerWhy.join(', and ')}.`);
                 const giveSum = idea.give.reduce((s, p) => s + p.dynasty, 0), getSum = idea.get.reduce((s, p) => s + p.dynasty, 0);
-                reasons.push(`Fair on dynasty value: ${fmt(giveSum)} out, ${fmt(getSum)} in${idea.give.length !== idea.get.length ? ' (the side getting the best player pays a premium)' : ''}.`);
+                reasons.push(`Fair on dynasty value: ${fmt(giveSum)} out, ${fmt(getSum)} in${idea.give.length !== idea.get.length ? ' (the side getting the best piece pays a premium)' : ''}.`);
                 
                 const potChange = idea.potAfter !== undefined ? idea.potAfter - idea.potBefore : null;
                 const potText = potChange === null ? '' : `
@@ -5314,7 +5409,7 @@
                     </li>
                 `;
             }).join('')}</ol>
-            <p class="race-footnote">How this works: player values are FantasyCalc's dynasty and this-season values for this league's format. Lineup value is turned into weekly points using how this league's starting lineups have actually scored (about ${(data.pointsPerValue * 1000).toFixed(1)} points a week per 1,000 of value). Pot odds re-run the pot simulation with the trade made. Ideas are a starting point for a conversation, not a guarantee; draft picks aren't included yet.</p>`;
+            <p class="race-footnote">How this works: player values are FantasyCalc's dynasty and this-season values for this league's format. Lineup value is turned into weekly points using how this league's starting lineups have actually scored (about ${(data.pointsPerValue * 1000).toFixed(1)} points a week per 1,000 of value). Pot odds re-run the pot simulation with the trade made. Ideas are a starting point for a conversation, not a guarantee; picks are valued by FantasyCalc, with ${data.season + 1} picks priced early, mid or late from each team's projected finish.</p>`;
         }
 
         // ==================== MIKE'S WEEKLY RECAP ====================
