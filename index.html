@@ -2092,6 +2092,21 @@
             display: none !important;
         }
 
+        /* Phones: wrap the pills so every section is visible without sideways swiping */
+        @media (max-width: 768px) {
+            .subtabs {
+                flex-wrap: wrap;
+                overflow: visible;
+                gap: 6px;
+                margin: -10px 0 18px;
+            }
+
+            .subtab-btn {
+                padding: 6px 12px;
+                font-size: 0.78rem;
+            }
+        }
+
         /* ---------- Clickable leaderboard rows ---------- */
         .table-hint {
             font-size: 0.85rem;
