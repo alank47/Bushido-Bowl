@@ -1579,6 +1579,163 @@
             font-size: 0.92rem;
         }
 
+        /* ---------- Trade Machine ---------- */
+        .tm-sides {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .tm-side .war-picker {
+            margin-bottom: 10px;
+        }
+
+        .tm-side .war-picker select {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .tm-assets {
+            list-style: none;
+            max-height: 360px;
+            overflow-y: auto;
+            border: 1px solid var(--line);
+            border-radius: 3px;
+            background: var(--washi);
+        }
+
+        .tm-asset {
+            width: 100%;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 10px;
+            border: none;
+            border-bottom: 1px solid var(--line-soft);
+            border-radius: 0;
+            background: transparent;
+            color: var(--sumi);
+            font-family: var(--font-body);
+            font-size: 0.88rem;
+            font-weight: 500;
+            letter-spacing: 0;
+            text-transform: none;
+            text-align: left;
+            box-shadow: none;
+        }
+
+        .tm-asset:hover {
+            background: var(--washi-deep);
+            transform: none;
+        }
+
+        .tm-asset.on {
+            background: rgba(179, 54, 43, 0.1);
+            box-shadow: inset 3px 0 0 var(--shu);
+        }
+
+        .tm-asset .roster-slot {
+            width: 40px;
+        }
+
+        .tm-asset-name {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            font-weight: 700;
+        }
+
+        .tm-asset-name small {
+            font-weight: 500;
+            font-size: 0.74rem;
+            color: var(--sumi-soft);
+        }
+
+        .tm-asset-value {
+            font-family: var(--font-display);
+            font-weight: 800;
+        }
+
+        .tm-verdict {
+            margin-top: 18px;
+        }
+
+        .tm-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .tm-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        .tm-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .tm-card {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 14px 16px;
+            background: var(--washi);
+            border: 1px solid var(--line);
+            border-radius: 3px;
+        }
+
+        .tm-card .team-avatar {
+            width: 30px;
+            height: 30px;
+        }
+
+        .tm-line {
+            font-size: 0.88rem;
+            color: var(--sumi-soft);
+        }
+
+        .tm-up { color: var(--matsu); }
+        .tm-down { color: var(--shu); }
+
+        .tm-moves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .tm-move {
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 2px;
+        }
+
+        .tm-move.up { background: rgba(61, 107, 76, 0.12); color: var(--matsu); }
+        .tm-move.down { background: rgba(179, 54, 43, 0.1); color: var(--shu); }
+
+        @media (max-width: 768px) {
+            .tm-sides,
+            .tm-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .tm-assets {
+                max-height: 280px;
+            }
+
+            .tm-actions {
+                margin-left: 0;
+            }
+        }
+
         /* ---------- Value changes ---------- */
         .value-cols {
             display: grid;
@@ -3533,14 +3690,9 @@
                     return '0.00';
                 }
                 
-                // Get the first season year
-                const leagueStartYear = seasons[0].season;
-                const currentDate = new Date();
-                const currentYear = currentDate.getFullYear();
-                const yearsElapsed = currentYear - leagueStartYear;
-                
-                // Calculate which year of the dynasty cycle we're in
-                const cycleYear = Math.min(yearsElapsed + 1, currentSettings.dynastyLength);
+                // Which year of the current pot cycle we're in
+                const cycle = dynastyCycle(seasons[0].season, seasons[seasons.length - 1].season);
+                const cycleYear = Math.min(seasons[seasons.length - 1].season - cycle.start + 1, currentSettings.dynastyLength);
                 
                 // Calculate compound interest for each deposit
                 const apr = currentSettings.apr / 100;
@@ -3714,11 +3866,13 @@
             warRoomFetch = null;
             warSeen = freshSeen(null);
             warPartner = null;
+            tradeMachine = { a: null, b: null, sendA: new Set(), sendB: new Set(), take: null };
             requestCache = {};
             potOddsCache = null;
             leaderboardReady = false;
             leaderboardError = null;
             leagueArchive = [];
+            currentCycle = null;
             lastSeasonMeta = [];
             lastLeaderboard = [];
             allTimeH2H = {};
@@ -3907,6 +4061,11 @@
                     fetchPlayoffBracket(s.leagueId)
                 ]));
                 
+                // Only the current pot cycle counts toward dynasty points; every season is kept for history
+                const cycle = dynastyCycle(seasons[0].season, seasons[seasons.length - 1].season);
+                currentCycle = cycle;
+                const cycleSeasons = seasons.filter(s => s.season >= cycle.start);
+                
                 // Process each season
                 for (const [seasonIndex, seasonData] of seasons.entries()) {
                     const { season, league } = seasonData;
@@ -3923,6 +4082,7 @@
                     const lastFinishedWeek = league.settings.last_scored_leg || 18;
                     
                     archive.push({ season, league, rosters: seasonRosters, matchups: seasonMatchups, bracket: winnersBracket, playoffWeekStart, lastFinishedWeek });
+                    if (season < cycle.start) continue; // an earlier pot cycle: history only
                     
                     // Create roster map for this season
                     const rosterMap = {};
@@ -4093,14 +4253,14 @@
                 document.getElementById('totalTeams').textContent = leaderboard.length;
                 
                 // Render leaderboard table
-                const firstSeason = seasons[0].season;
-                const lastSeason = seasons[seasons.length - 1].season;
+                const firstSeason = cycleSeasons[0].season;
+                const lastSeason = cycleSeasons[cycleSeasons.length - 1].season;
                 
                 let tableHTML = `
                     <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-                        <strong style="color: var(--accent-gold);">Dynasty Stats: ${firstSeason} - ${lastSeason}</strong>
+                        <strong style="color: var(--accent-gold);">${cycle.number > 1 ? `Pot #${cycle.number}: ${cycle.start}–${cycle.end}` : `Dynasty Stats: ${firstSeason} - ${lastSeason}`}</strong>
                         <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">
-                            ${seasons.length} season${seasons.length > 1 ? 's' : ''} tracked
+                            ${cycleSeasons.length} season${cycleSeasons.length > 1 ? 's' : ''} counted${cycle.number > 1 ? ` this cycle · earlier seasons live in Historical Stats and the Hall of Shoguns` : ''}
                         </div>
                     </div>
                     <p class="table-hint">Select a team to see its roster</p>
@@ -5161,6 +5321,15 @@
         let leaderboardReady = false;   // true once the leaderboard (and everything built from it) is done
         let leaderboardError = null;
         
+        // The pot runs in back-to-back cycles of dynastyLength seasons, counted from the league's first Sleeper season.
+        // E.g. a league since 2021 with 5-year pots: 2021-2025, then 2026-2030.
+        function dynastyCycle(firstSeason, latestSeason) {
+            const length = Math.max(1, getSettings().dynastyLength);
+            const start = firstSeason + Math.floor(Math.max(0, latestSeason - firstSeason) / length) * length;
+            return { start, end: start + length - 1, number: Math.floor((start - firstSeason) / length) + 1 };
+        }
+        let currentCycle = null;
+        
         // Every finished game in a season: [{ week, playoffs, a: {userId, points}, b: {userId, points} }]
         function seasonGames(entry, { regularOnly = false } = {}) {
             const owner = {};
@@ -5794,6 +5963,11 @@
                 </div>
                 
                 <div class="stat-section">
+                    <h2 class="section-title">Trade Machine</h2>
+                    <div id="tradeMachine"></div>
+                </div>
+                
+                <div class="stat-section">
                     <h2 class="section-title">Free Agents</h2>
                     ${renderFreeAgents(data, team)}
                 </div>
@@ -5809,6 +5983,8 @@
                 </div>
             `;
             loadValueChanges();
+            if (tradeMachine.a !== team.userId) tradeMachine = { a: team.userId, b: null, sendA: new Set(), sendB: new Set(), take: null };
+            renderTradeMachine();
             
             loadTradeIdeas();
         }
@@ -5973,6 +6149,216 @@
                     </table>
                 </div>
             `;
+        }
+        
+        // ---------- Trade Machine ----------
+        // Build any trade between two teams and see fairness, lineup change, 2029 value and pot odds for both sides.
+        let tradeMachine = { a: null, b: null, sendA: new Set(), sendB: new Set(), take: null };
+        let tradeMachineRun = 0;
+        
+        function renderTradeMachine() {
+            const el = document.getElementById('tradeMachine');
+            const data = warRoomData;
+            if (!el || !data) return;
+            const tm = tradeMachine;
+            const teamA = data.teams.find(t => t.userId === tm.a) || data.teams[0];
+            if (!tm.b || tm.b === teamA.userId) tm.b = data.teams.find(t => t.userId !== teamA.userId).userId;
+            const teamB = data.teams.find(t => t.userId === tm.b);
+            const fmt = n => Math.round(n).toLocaleString();
+            
+            const picker = (side, selected) => `
+                <select onchange="tradeMachineTeam('${side}', this.value)">
+                    ${[...data.teams].sort((x, y) => x.name.localeCompare(y.name)).map(t => `<option value="${t.userId}" ${t.userId === selected.userId ? 'selected' : ''} ${(side === 'a' ? t.userId === teamB.userId : t.userId === teamA.userId) ? 'disabled' : ''}>${escapeHTML(t.name)}</option>`).join('')}
+                </select>
+            `;
+            const assetList = (team, side, chosen) => {
+                const order = ['QB', 'RB', 'WR', 'TE', 'PICK'];
+                const items = team.roster
+                    .filter(p => order.includes(p.position))
+                    .sort((x, y) => order.indexOf(x.position) - order.indexOf(y.position) || y.dynasty - x.dynasty);
+                return `<ul class="tm-assets">${items.map(p => `
+                    <li>
+                        <button type="button" class="tm-asset ${chosen.has(p.id) ? 'on' : ''}" onclick="tradeMachineToggle('${side}', '${escapeHTML(p.id)}')" aria-pressed="${chosen.has(p.id)}">
+                            <span class="roster-slot pos-${p.position.toLowerCase()}">${p.position}</span>
+                            <span class="tm-asset-name">${escapeHTML(p.name)}<small>${escapeHTML([p.position === 'PICK' ? p.nflTeam : p.nflTeam, p.age ? `${p.age} yrs` : null].filter(Boolean).join(' · '))}</small></span>
+                            <span class="tm-asset-value">${fmt(p.dynasty)}</span>
+                        </button>
+                    </li>
+                `).join('')}</ul>`;
+            };
+            
+            const scrolls = [...el.querySelectorAll('.tm-assets')].map(list => list.scrollTop);
+            el.innerHTML = `
+                <p class="section-note">Build any trade: pick two teams and tap the players and picks each side sends. The verdict updates as you go.</p>
+                <div class="tm-sides">
+                    <div class="tm-side">
+                        <label class="war-picker">Team A ${picker('a', teamA)}</label>
+                        <span class="idea-label">${escapeHTML(teamA.name)} sends</span>
+                        ${assetList(teamA, 'a', tm.sendA)}
+                    </div>
+                    <div class="tm-side">
+                        <label class="war-picker">Team B ${picker('b', teamB)}</label>
+                        <span class="idea-label">${escapeHTML(teamB.name)} sends</span>
+                        ${assetList(teamB, 'b', tm.sendB)}
+                    </div>
+                </div>
+                <div id="tmVerdict" class="tm-verdict">${tradeMachineVerdict(data, teamA, teamB)}</div>
+            `;
+            el.querySelectorAll('.tm-assets').forEach((list, i) => { list.scrollTop = scrolls[i] || 0; });
+            if (tm.sendA.size && tm.sendB.size) tradeMachinePotOdds(data, teamA, teamB);
+        }
+        
+        function tradeMachineTeam(side, userId) {
+            tradeMachine[side] = userId;
+            tradeMachine[side === 'a' ? 'sendA' : 'sendB'] = new Set();
+            tradeMachine.take = null;
+            renderTradeMachine();
+        }
+        
+        function tradeMachineToggle(side, id) {
+            const set = side === 'a' ? tradeMachine.sendA : tradeMachine.sendB;
+            if (set.has(id)) set.delete(id); else set.add(id);
+            tradeMachine.take = null;
+            renderTradeMachine();
+        }
+        
+        function tradeMachineReset() {
+            tradeMachine.sendA = new Set();
+            tradeMachine.sendB = new Set();
+            tradeMachine.take = null;
+            renderTradeMachine();
+        }
+        
+        // Rosters after the swap, and what changes for each side
+        function tradeMachineResult(data, teamA, teamB) {
+            const give = teamA.roster.filter(p => tradeMachine.sendA.has(p.id));
+            const get = teamB.roster.filter(p => tradeMachine.sendB.has(p.id));
+            const swap = (team, out, incoming) => {
+                const outIds = new Set(out.map(p => p.id));
+                const copy = { ...team, roster: team.roster.filter(p => !outIds.has(p.id)).concat(incoming) };
+                evaluateTeam(data, copy);
+                return copy;
+            };
+            const afterA = swap(teamA, give, get), afterB = swap(teamB, get, give);
+            return { give, get, afterA, afterB };
+        }
+        
+        function tradeMachineVerdict(data, teamA, teamB) {
+            const tm = tradeMachine;
+            if (!tm.sendA.size || !tm.sendB.size) {
+                return `<p class="section-note">${tm.sendA.size || tm.sendB.size ? 'Now add what the other team sends.' : 'Pick at least one player or pick from each side.'}</p>`;
+            }
+            const fmt = n => Math.round(n).toLocaleString();
+            const signed = (n, digits = 1) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(digits)}`;
+            const { give, get, afterA, afterB } = tradeMachineResult(data, teamA, teamB);
+            
+            // Fairness on star-weighted dynasty value (the side getting the best piece pays a premium)
+            const valueA = starValue(give), valueB = starValue(get);
+            const gap = Math.abs(valueA - valueB) / Math.max(valueA, valueB, 0.001);
+            const ahead = valueA > valueB ? teamB : teamA; // who receives more value
+            const verdict = gap <= 0.08 ? { label: 'Fair', tone: 'fair', detail: 'Even on dynasty value.' }
+                : gap <= WAR_TRADE_FAIRNESS ? { label: 'Close', tone: 'slight', detail: `Slight edge to ${escapeHTML(ahead.name)}.` }
+                : gap <= 0.3 ? { label: 'Uneven', tone: 'slight', detail: `${escapeHTML(ahead.name)} gets noticeably more value.` }
+                : { label: 'Lopsided', tone: 'lopsided', detail: `${escapeHTML(ahead.name)} wins this by a lot.` };
+            
+            const sideCard = (team, after, sent, received) => {
+                const weekly = (after.nowTotal - team.nowTotal) * data.pointsPerValue;
+                const future = after.futureTotal - team.futureTotal;
+                const moves = GRADE_POSITIONS
+                    .map(pos => ({ pos, before: team.grades[pos].rank, now: 1 + data.teams.filter(t => t.userId !== team.userId && t.grades[pos].value > after.grades[pos].value).length }))
+                    .filter(m => m.before !== m.now)
+                    .map(m => `<span class="tm-move ${m.now < m.before ? 'up' : 'down'}">${m.pos} #${m.before} → #${m.now}</span>`).join('');
+                return `
+                    <div class="tm-card">
+                        <span class="team-label">${avatarImg(team.avatar)}<strong>${escapeHTML(team.name)}</strong></span>
+                        <span class="tm-line">Sends ${fmt(sent.reduce((s, p) => s + p.dynasty, 0))} · gets ${fmt(received.reduce((s, p) => s + p.dynasty, 0))} in dynasty value</span>
+                        <span class="tm-line"><strong class="${weekly >= 0.05 ? 'tm-up' : weekly <= -0.05 ? 'tm-down' : ''}">${signed(weekly)} pts/week</strong> now · <strong class="${future >= 0 ? 'tm-up' : 'tm-down'}">${future >= 0 ? '+' : '−'}${fmt(Math.abs(future))}</strong> value for ${data.finalSeason}</span>
+                        ${moves ? `<span class="tm-moves">${moves}</span>` : ''}
+                        <span class="tm-line tm-pot" data-user="${team.userId}">Pot odds: calculating…</span>
+                    </div>
+                `;
+            };
+            return `
+                <div class="tm-head">
+                    <span class="fairness-verdict fairness-${verdict.tone}">${verdict.label}</span>
+                    <span>${verdict.detail}</span>
+                    <span class="tm-actions">
+                        <button type="button" class="live-refresh" onclick="tradeMachineTake()">Mike's take</button>
+                        <button type="button" class="live-refresh" onclick="tradeMachineReset()">Clear</button>
+                    </span>
+                </div>
+                <div class="tm-cards">
+                    ${sideCard(teamA, afterA, give, get)}
+                    ${sideCard(teamB, afterB, get, give)}
+                </div>
+                <div id="tmTake">${tradeMachine.take ? `<div class="trade-analysis"><div class="analysis-title">🎬 Mike's Take</div><div class="analysis-text">${escapeHTML(tradeMachine.take)}</div></div>` : ''}</div>
+            `;
+        }
+        
+        // Pot odds before and after for both teams; reruns are dropped if the trade changed meanwhile
+        async function tradeMachinePotOdds(data, teamA, teamB) {
+            const run = ++tradeMachineRun;
+            const fill = (userId, text) => {
+                const el = document.querySelector(`#tmVerdict .tm-pot[data-user="${userId}"]`);
+                if (el) el.innerHTML = text;
+            };
+            await new Promise(resolve => setTimeout(resolve, 60));
+            if (run !== tradeMachineRun) return;
+            if (!potOddsCache) {
+                [teamA, teamB].forEach(t => fill(t.userId, 'Pot odds: not available for this league'));
+                return;
+            }
+            const { afterA, afterB } = tradeMachineResult(data, teamA, teamB);
+            const adjust = {
+                [teamA.userId]: (afterA.nowTotal - teamA.nowTotal) * data.pointsPerValue,
+                [teamB.userId]: (afterB.nowTotal - teamB.nowTotal) * data.pointsPerValue
+            };
+            const worlds = Math.max(750, Math.round(worldsFor(lastLeaderboard.length) / 2));
+            const base = computePotOdds(leagueArchive, lastSeasonMeta, lastLeaderboard, { worlds, lastWeek: false });
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (run !== tradeMachineRun) return;
+            const withTrade = computePotOdds(leagueArchive, lastSeasonMeta, lastLeaderboard, { worlds, lastWeek: false, adjust });
+            if (run !== tradeMachineRun || !base || !withTrade) return;
+            [teamA, teamB].forEach(t => {
+                const before = potOddsCache.now[t.userId] || 0;
+                const after = Math.min(100, Math.max(0, before + (withTrade.now[t.userId] || 0) - (base.now[t.userId] || 0)));
+                const diff = after - before;
+                fill(t.userId, `Pot odds: ${formatOdds(before)} → <strong class="${diff >= 0.5 ? 'tm-up' : diff <= -0.5 ? 'tm-down' : ''}">${formatOdds(after)}</strong>`);
+            });
+        }
+        
+        // Mike's write-up of the built trade, through the same Worker as trade analysis
+        async function tradeMachineTake() {
+            const data = warRoomData;
+            const teamA = data.teams.find(t => t.userId === tradeMachine.a);
+            const teamB = data.teams.find(t => t.userId === tradeMachine.b);
+            const target = document.getElementById('tmTake');
+            if (!teamA || !teamB || !target) return;
+            const { give, get } = tradeMachineResult(data, teamA, teamB);
+            target.innerHTML = '<div class="loading"><div class="spinner"></div><p>Mike is looking it over...</p></div>';
+            let standings = {};
+            try { standings = JSON.parse(sessionStorage.getItem('dynastyStandings')) || {}; } catch (e) {}
+            const asset = p => ({ desc: p.name, value: Math.round(p.dynasty), age: p.age || undefined, position: p.position === 'PICK' ? undefined : p.position });
+            try {
+                const response = await fetch('https://mikestrade.alank-42a.workers.dev/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tradeDate: new Date().toLocaleDateString(),
+                        season: data.season,
+                        totalTeams: Object.keys(standings).length || undefined,
+                        team1: { name: teamA.name, assets: get.map(asset), total: Math.round(get.reduce((s, p) => s + p.dynasty, 0)), standing: standings[teamA.manager] },
+                        team2: { name: teamB.name, assets: give.map(asset), total: Math.round(give.reduce((s, p) => s + p.dynasty, 0)), standing: standings[teamB.manager] }
+                    })
+                });
+                if (!response.ok) throw new Error(`status ${response.status}`);
+                const result = await response.json();
+                tradeMachine.take = result.text || '';
+                target.innerHTML = `<div class="trade-analysis"><div class="analysis-title">🎬 Mike's Take</div><div class="analysis-text">${escapeHTML(tradeMachine.take)}</div></div>`;
+            } catch (error) {
+                console.error('Trade Machine take error:', error);
+                target.innerHTML = '<p class="section-note">Mike couldn\'t be reached right now. Try again in a bit.</p>';
+            }
         }
         
         // ---------- Value changes ----------
@@ -6613,7 +6999,7 @@
             if (!leagueArchive.length) return;
             const seasons = leagueArchive.map(seasonAwards);
             const firstSeason = leagueArchive[0].season;
-            const finalSeason = firstSeason + getSettings().dynastyLength - 1;
+            const finalSeason = currentCycle ? currentCycle.end : firstSeason + getSettings().dynastyLength - 1;
             
             // Banners: one hanging scroll per season of the dynasty
             const banners = [];
@@ -8497,6 +8883,7 @@
             [/^Standings by Season$/, 'Standings'],
             [/^Position Grades$/, 'Scouting Report'],
             [/^Trade Ideas$/, 'Trade Ideas'],
+            [/^Trade Machine$/, 'Trade Machine'],
             [/^Free Agents$/, 'Free Agents'],
             [/^Draft Pick Board$/, 'Draft Picks'],
             [/^Value Changes$/, 'Value Changes'],
