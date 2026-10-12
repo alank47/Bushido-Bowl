@@ -1873,6 +1873,51 @@
             .odds-track { grid-area: track; height: 12px; }
         }
 
+        /* ---------- Subtabs ---------- */
+        .subtabs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            margin: -14px 0 22px;
+            padding: 2px;
+        }
+
+        .subtab-btn {
+            width: auto;
+            min-height: 0;
+            padding: 7px 15px;
+            border-radius: 999px;
+            background: transparent;
+            border: 1px solid var(--line);
+            color: var(--sumi-soft);
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: none;
+            white-space: nowrap;
+            box-shadow: none;
+            flex-shrink: 0;
+        }
+
+        .subtab-btn:hover {
+            background: var(--washi-deep);
+            color: var(--sumi);
+            transform: none;
+        }
+
+        .subtab-btn.active {
+            background: var(--sumi);
+            border-color: var(--sumi);
+            color: var(--card);
+        }
+
+        .subtab-off {
+            display: none !important;
+        }
+
         /* ---------- Clickable leaderboard rows ---------- */
         .table-hint {
             font-size: 0.85rem;
@@ -3441,7 +3486,8 @@
                     throw new Error('You are not in this league');
                 }
                 
-                // Store session
+                // Store session (and drop anything loaded for a previous league)
+                resetLeagueState();
                 sessionStorage.setItem('leagueId', leagueId);
                 sessionStorage.setItem('rosters', JSON.stringify(rosters));
                 sessionStorage.setItem('users', JSON.stringify(users));
@@ -3454,6 +3500,16 @@
 
         function logout() {
             sessionStorage.clear();
+            resetLeagueState();
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('leagueSelection').style.display = 'none';
+            document.getElementById('leagueSelect').innerHTML = '<option value="">Choose a league...</option>';
+        }
+        
+        // Forget everything loaded for the previous league (on logout, and before a new league loads)
+        function resetLeagueState() {
             fantasyCalcQuery = null;
             playerValuesCache = null;
             warRoomData = null;
@@ -3475,11 +3531,6 @@
             document.getElementById('recapSection').hidden = true;
             document.getElementById('powerSection').hidden = true;
             tradeReportLoaded = null;
-            document.getElementById('loginSection').style.display = 'block';
-            document.getElementById('dashboard').style.display = 'none';
-            document.getElementById('username').value = '';
-            document.getElementById('leagueSelection').style.display = 'none';
-            document.getElementById('leagueSelect').innerHTML = '<option value="">Choose a league...</option>';
         }
 
         async function showDashboard() {
@@ -5191,27 +5242,121 @@
                 if (key in owner) owner[key] = tp.owner_id;
             });
             
+            // Leagues with a draft lottery: simulate the rest of the season and the drawing itself
+            const rules = lotteryRulesFor();
+            const lottery = rules && !draftPending ? simulateDraftLottery(data, rosters, rules) : null;
+            data.lottery = lottery ? { season: firstDraft, rows: lottery, rules } : null;
+            const slotTier = slot => (slot < n / 3 ? 'Early' : slot < 2 * n / 3 ? 'Mid' : 'Late');
+            const lotteryValue = (row, season, round) => row.slotProbs.reduce((sum, prob, slot) => sum + prob * valueFor(season, round, slotTier(slot)), 0);
+            
             Object.entries(owner).forEach(([key, ownerRosterId]) => {
                 const [season, round, origRosterId] = key.split('|').map(Number);
                 const holder = byRoster[ownerRosterId];
                 const original = byRoster[origRosterId];
                 if (!holder || !original) return;
-                const tier = season === firstDraft ? tierOf[origRosterId] : null;
+                const odds = season === firstDraft && lottery ? lottery.find(r => r.rosterId === origRosterId) : null;
+                const tier = season === firstDraft && !odds ? tierOf[origRosterId] : null;
                 const yearsOfUse = data.finalSeason - season + 1;
                 holder.roster.push({
                     id: `pick-${key}`,
                     name: `${season} ${ordinal(round)}${origRosterId === ownerRosterId ? '' : ` (${original.name})`}`,
                     position: 'PICK',
-                    nflTeam: tier ? `Projected ${tier.toLowerCase()}` : 'Draft pick',
+                    nflTeam: odds
+                        ? `Proj. pick ${odds.expectedSlot.toFixed(1)} · ${Math.round(odds.slotProbs[0] * 100)}% at ${round}.01`
+                        : tier ? `Projected ${tier.toLowerCase()}` : 'Draft pick',
                     age: null,
                     now: 0,
-                    dynasty: valueFor(season, round, tier || 'Mid'),
+                    dynasty: odds ? lotteryValue(odds, season, round) : valueFor(season, round, tier || 'Mid'),
                     // A late pick has few seasons left to help the pot (a 2029 rookie gets one)
                     futureFactor: Math.min(1, Math.max(0.25, yearsOfUse / 3)),
                     pickSeason: season,
                     pickRound: round,
                     unavailable: true // never in a lineup
                 });
+            });
+        }
+        
+        // League-specific draft lotteries, keyed by the league's first-season Sleeper ID (it stays the same every year).
+        // nonPlayoff = chance at 1.01 for each non-playoff finish (9th, 10th, ...); playoff teams share what's left equally.
+        // Every slot is drawn from the same weights among the teams still left. The draft is linear, so a team's slot
+        // is the same in every round.
+        const DRAFT_LOTTERIES = {
+            '1225353050911158272': { name: 'Bushidō Bowl', nonPlayoff: [40, 20, 8, 8] }
+        };
+        
+        function lotteryRulesFor() {
+            return DRAFT_LOTTERIES[leagueArchive[0]?.league?.league_id] || null;
+        }
+        
+        // Odds of every draft slot for every team: play out the rest of the regular season, rank teams by wins
+        // (points for breaks ties), then run the weighted drawing. Same model and strengths as the pot odds.
+        function simulateDraftLottery(data, rosters, rules, worlds = 5000) {
+            const entry = leagueArchive[leagueArchive.length - 1];
+            const meta = lastSeasonMeta[lastSeasonMeta.length - 1];
+            const teams = data.teams;
+            const n = teams.length;
+            const playoffTeams = Math.min(entry.league.settings.playoff_teams || 6, n);
+            const { leagueAvg } = estimateStrengths(leagueArchive, teams.map(t => t.userId));
+            const est = teams.map(t => teamStrength[t.userId] || { mean: 0, sd: POT_SIM.trueSd });
+            const settingsOf = t => rosters.find(r => r.roster_id === t.rosterId)?.settings || {};
+            const wins0 = teams.map(t => settingsOf(t).wins || 0);
+            const pf0 = teams.map(t => (settingsOf(t).fpts || 0) + (settingsOf(t).fpts_decimal || 0) / 100);
+            const regularWeeks = meta.regularWeeks;
+            const startWeek = meta.complete ? regularWeeks + 1 : meta.weeksPlayed + 1;
+            
+            const specified = rules.nonPlayoff.slice(0, n - playoffTeams);
+            const playoffShare = Math.max(0, 100 - specified.reduce((a, b) => a + b, 0)) / playoffTeams;
+            const weightForPlace = place => (place > playoffTeams ? (specified[place - playoffTeams - 1] ?? 0) : playoffShare);
+            
+            const rng = seededRandom(POT_SIM.seed + 7);
+            const slotCounts = teams.map(() => new Array(n).fill(0));
+            const placeSum = new Array(n).fill(0);
+            const order = new Int32Array(n);
+            const scores = new Float64Array(n);
+            
+            for (let world = 0; world < worlds; world++) {
+                const strength = est.map(e => e.mean + e.sd * rng.normal());
+                const wins = [...wins0], pf = [...pf0];
+                for (let i = 0; i < n; i++) order[i] = i;
+                for (let week = startWeek; week <= regularWeeks; week++) {
+                    for (let i = 0; i < n; i++) scores[i] = leagueAvg + strength[i] + POT_SIM.weekSd * rng.normal();
+                    for (let i = n - 1; i > 0; i--) {
+                        const j = Math.floor(rng.uniform() * (i + 1));
+                        const swap = order[i]; order[i] = order[j]; order[j] = swap;
+                    }
+                    for (let k = 0; k + 1 < n; k += 2) {
+                        const a = order[k], b = order[k + 1];
+                        wins[scores[a] > scores[b] ? a : b]++;
+                    }
+                    for (let i = 0; i < n; i++) pf[i] += scores[i];
+                }
+                
+                // Final regular-season places, then the drawing
+                const standings = [...Array(n).keys()].sort((a, b) => wins[b] - wins[a] || pf[b] - pf[a]);
+                const weight = new Array(n);
+                standings.forEach((team, i) => { weight[team] = weightForPlace(i + 1); placeSum[team] += i + 1; });
+                const remaining = [...Array(n).keys()];
+                for (let slot = 0; slot < n; slot++) {
+                    const total = remaining.reduce((sum, team) => sum + weight[team], 0);
+                    let pick = remaining[remaining.length - 1];
+                    if (total > 0) {
+                        let r = rng.uniform() * total;
+                        for (const team of remaining) { r -= weight[team]; if (r <= 0) { pick = team; break; } }
+                    }
+                    slotCounts[pick][slot]++;
+                    remaining.splice(remaining.indexOf(pick), 1);
+                }
+            }
+            
+            return teams.map((t, i) => {
+                const slotProbs = slotCounts[i].map(c => c / worlds);
+                return {
+                    rosterId: t.rosterId,
+                    userId: t.userId,
+                    slotProbs,
+                    expectedSlot: slotProbs.reduce((sum, p, slot) => sum + p * (slot + 1), 0),
+                    expectedPlace: placeSum[i] / worlds
+                };
             });
         }
         
@@ -5566,7 +5711,40 @@
                 return { t, picks, total: picks.reduce((s, p) => s + p.dynasty, 0) };
             }).sort((a, b) => b.total - a.total);
             const originalTeam = p => p.name.match(/\((.*)\)$/)?.[1];
-            return `
+            
+            // Whose pick is worth the most right now, given the lottery and projected finishes
+            let lotteryHtml = '';
+            if (data.lottery) {
+                const { season, rows: odds, rules } = data.lottery;
+                const firstOf = rosterId => data.teams.flatMap(t => t.roster.map(p => ({ p, holder: t }))).find(x => x.p.id === `pick-${season}|1|${rosterId}`);
+                const pct = x => (x >= 0.995 ? '>99%' : x < 0.005 && x > 0 ? '<1%' : `${Math.round(x * 100)}%`);
+                const currentUserId = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}').user_id;
+                const lotteryRows = odds.map(o => ({ o, team: data.teams.find(t => t.rosterId === o.rosterId), first: firstOf(o.rosterId) }))
+                    .sort((a, b) => (b.first?.p.dynasty || 0) - (a.first?.p.dynasty || 0));
+                lotteryHtml = `
+                    <h3 class="roster-group-title">${season} Lottery Odds</h3>
+                    <p class="section-note">Your lottery makes the best non-playoff finish the most valuable: ${rules.nonPlayoff.map((w, i) => `${ordinal(i + 9)} ${w}%`).join(', ')} at 1.01, with the playoff teams sharing the rest. These odds come from simulating the rest of the season and the drawing 5,000 times.</p>
+                    <div class="pick-board-wrap">
+                        <table class="stats-table">
+                            <thead><tr><th>Original team</th><th>Projected finish</th><th>Chance at 1.01</th><th>Top 3 pick</th><th>Expected pick</th><th>1st now owned by</th><th>1st value</th></tr></thead>
+                            <tbody>${lotteryRows.map(({ o, team: t, first }) => `
+                                <tr ${first?.holder.userId === currentUserId ? 'class="current-user-row"' : ''}>
+                                    <td data-label="Original team"><span class="team-label">${avatarImg(t.avatar)}<span>${escapeHTML(t.name)}</span></span></td>
+                                    <td data-label="Projected finish">${o.expectedPlace.toFixed(1)}</td>
+                                    <td data-label="Chance at 1.01"><strong>${pct(o.slotProbs[0])}</strong></td>
+                                    <td data-label="Top 3 pick">${pct(o.slotProbs[0] + o.slotProbs[1] + o.slotProbs[2])}</td>
+                                    <td data-label="Expected pick">${o.expectedSlot.toFixed(1)}</td>
+                                    <td data-label="1st now owned by">${first ? (first.holder.userId === t.userId ? 'Own pick' : escapeHTML(first.holder.name)) : '—'}</td>
+                                    <td data-label="1st value">${first ? fmt(first.p.dynasty) : '—'}</td>
+                                </tr>
+                            `).join('')}</tbody>
+                        </table>
+                    </div>
+                    <p class="race-footnote">Assumes the ${data.teams.length - rules.nonPlayoff.length} playoff teams split the remaining ${100 - rules.nonPlayoff.reduce((a, b) => a + b, 0)}% equally, and that every later slot is drawn from the same weights. Pick values blend FantasyCalc's early, mid and late values by these odds.</p>
+                    <h3 class="roster-group-title" style="margin-top: 22px;">Who Owns What</h3>
+                `;
+            }
+            return lotteryHtml + `
                 <p class="section-note">Who owns which picks, after every trade. Acquired picks show the original team; ${seasons[0]} picks show their projected slot.</p>
                 <div class="pick-board-wrap">
                     <table class="stats-table pick-board">
@@ -7886,6 +8064,92 @@
         function showManualTradeForm() {
             alert('Manual trade entry coming soon! For now, use "Load Sleeper Trades" to import your league\'s transactions.');
         }
+
+        // ==================== SUBTABS ====================
+        //
+        // Each main tab shows one group of sections at a time. Groups come from section titles, so sections
+        // rendered later (live scores, a new War Room team, Historical Stats) slot in automatically.
+        
+        const SUBTAB_RULES = [
+            [/^War Room$/, null],                       // header with the team picker: always visible
+            [/Power Rankings$/, 'Power Rankings'],
+            [/^Week \d+|Recap$|^This Week/, 'This Week'],
+            [/^Dynasty Leaderboard$/, 'Leaderboard'],
+            [/^The Road to/, 'Overview'],
+            [/^Pot Odds$/, 'Pot Odds'],
+            [/^The Race$/, 'The Race'],
+            [/^Standings by Season$/, 'Standings'],
+            [/^Position Grades$/, 'Scouting Report'],
+            [/^Trade Ideas$/, 'Trade Ideas'],
+            [/^Free Agents$/, 'Free Agents'],
+            [/^Draft Pick Board$/, 'Draft Picks'],
+            [/^Hall of Shoguns$/, 'Champions'],
+            [/^All-Time Records$/, 'Records'],
+            [/Awards/, 'Season Awards'],
+            [/^Who Won the Trade/, 'Who Won'],
+            [/Trade Tracker/, 'All Trades']
+        ];
+        const subtabActive = {};
+        
+        function subtabLabel(section) {
+            const title = (section.querySelector('.section-title')?.textContent || '')
+                .replace(/\p{Extended_Pictographic}|\uFE0F/gu, '').replace(/\s+/g, ' ').trim();
+            for (const [pattern, label] of SUBTAB_RULES) if (pattern.test(title)) return label;
+            return title || null;
+        }
+        
+        function applySubtabs(tab) {
+            const sections = [...tab.querySelectorAll('.stat-section, .leaderboard-section')]
+                .filter(sec => !sec.parentElement.closest('.stat-section, .leaderboard-section'));
+            const groups = [];
+            sections.forEach(sec => {
+                const label = subtabLabel(sec);
+                sec.dataset.subtab = label || '';
+                if (!label) return;
+                let group = groups.find(g => g.label === label);
+                if (!group) groups.push(group = { label, sections: [] });
+                group.sections.push(sec);
+            });
+            const shown = groups.filter(g => g.sections.some(sec => !sec.hidden));
+            let nav = tab.querySelector('.subtabs');
+            
+            if (shown.length < 2) {
+                nav?.remove();
+                sections.forEach(sec => sec.classList.remove('subtab-off'));
+                return;
+            }
+            let active = subtabActive[tab.id];
+            if (!shown.some(g => g.label === active)) active = shown[0].label;
+            
+            // Rebuild the buttons only when they change, so this doesn't keep re-triggering itself
+            const signature = shown.map(g => g.label).join('|') + '#' + active;
+            if (!nav || nav.dataset.signature !== signature) {
+                const fresh = document.createElement('nav');
+                fresh.className = 'subtabs';
+                fresh.setAttribute('aria-label', 'Sections');
+                fresh.dataset.signature = signature;
+                fresh.innerHTML = shown.map(g => `<button type="button" class="subtab-btn ${g.label === active ? 'active' : ''}" data-label="${escapeHTML(g.label)}" ${g.label === active ? 'aria-current="true"' : ''}>${escapeHTML(g.label)}</button>`).join('');
+                fresh.addEventListener('click', event => {
+                    const button = event.target.closest('.subtab-btn');
+                    if (!button) return;
+                    subtabActive[tab.id] = button.dataset.label;
+                    applySubtabs(tab);
+                });
+                if (nav) nav.replaceWith(fresh);
+                else groups[0].sections[0].parentElement.insertBefore(fresh, groups[0].sections[0]);
+            }
+            sections.forEach(sec => sec.classList.toggle('subtab-off', !!sec.dataset.subtab && sec.dataset.subtab !== active));
+        }
+        
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            let queued = false;
+            new MutationObserver(() => {
+                if (queued) return;
+                queued = true;
+                setTimeout(() => { queued = false; applySubtabs(tab); }, 0);
+            }).observe(tab, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+            applySubtabs(tab);
+        });
 
         // Check for existing session on load
         window.onload = function() {
