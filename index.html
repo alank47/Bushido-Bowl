@@ -1898,6 +1898,155 @@
             .odds-track { grid-area: track; height: 12px; }
         }
 
+        /* ---------- Value Changes buddy ---------- */
+        .value-buddy {
+            position: fixed;
+            right: 16px;
+            bottom: 0;
+            z-index: 60;
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            pointer-events: none;
+        }
+
+        .value-buddy[hidden] {
+            display: none;
+        }
+
+        .buddy-img {
+            width: 170px;
+            height: auto;
+            pointer-events: auto;
+            cursor: pointer;
+            transform-origin: bottom center;
+            filter: drop-shadow(0 12px 18px rgba(29, 26, 23, 0.35));
+        }
+
+        .buddy-bubble {
+            position: relative;
+            pointer-events: auto;
+            max-width: 270px;
+            min-height: 54px;
+            margin-bottom: 170px;
+            padding: 14px 18px;
+            background: var(--card);
+            border: 2px solid var(--sumi);
+            border-radius: 16px;
+            box-shadow: 4px 4px 0 var(--sumi);
+            font-family: var(--font-body);
+            font-weight: 700;
+            font-size: 0.92rem;
+            line-height: 1.45;
+            color: var(--sumi);
+        }
+
+        /* Tail pointing at him */
+        .buddy-bubble::after {
+            content: '';
+            position: absolute;
+            right: -14px;
+            bottom: 18px;
+            border-width: 8px 0 8px 14px;
+            border-style: solid;
+            border-color: transparent transparent transparent var(--sumi);
+        }
+
+        .buddy-bubble p {
+            margin: 0;
+            padding-right: 14px;
+        }
+
+        .buddy-close {
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            width: 22px;
+            height: 22px;
+            min-height: 0;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--sumi-soft);
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            letter-spacing: 0;
+            box-shadow: none;
+        }
+
+        .buddy-close:hover {
+            background: var(--washi-deep);
+            color: var(--sumi);
+            transform: none;
+        }
+
+        .value-buddy.entering .buddy-img {
+            animation: buddy-in 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both, buddy-sway 3.2s ease-in-out 0.8s infinite;
+        }
+
+        .value-buddy.entering .buddy-bubble {
+            animation: buddy-bubble-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) 0.45s both;
+        }
+
+        .value-buddy.leaving .buddy-img {
+            animation: buddy-out 0.45s ease-in both;
+        }
+
+        .value-buddy.leaving .buddy-bubble {
+            animation: buddy-bubble-out 0.25s ease-in both;
+        }
+
+        @keyframes buddy-in {
+            from { transform: translateY(110%) rotate(-10deg); }
+            65% { transform: translateY(-5%) rotate(3deg); }
+            to { transform: translateY(0) rotate(0); }
+        }
+
+        @keyframes buddy-sway {
+            0%, 100% { transform: rotate(0) translateY(0); }
+            50% { transform: rotate(1.8deg) translateY(-4px); }
+        }
+
+        @keyframes buddy-out {
+            to { transform: translateY(115%) rotate(8deg); }
+        }
+
+        @keyframes buddy-bubble-in {
+            from { opacity: 0; transform: scale(0.6) translateY(12px); transform-origin: bottom right; }
+            to { opacity: 1; transform: scale(1) translateY(0); transform-origin: bottom right; }
+        }
+
+        @keyframes buddy-bubble-out {
+            to { opacity: 0; transform: scale(0.8); }
+        }
+
+        @media (max-width: 768px) {
+            .value-buddy {
+                right: 6px;
+            }
+
+            .buddy-img {
+                width: 112px;
+            }
+
+            .buddy-bubble {
+                max-width: 210px;
+                margin-bottom: 110px;
+                font-size: 0.82rem;
+                padding: 12px 14px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .value-buddy.entering .buddy-img,
+            .value-buddy.entering .buddy-bubble,
+            .value-buddy.leaving .buddy-img,
+            .value-buddy.leaving .buddy-bubble {
+                animation: none;
+            }
+        }
+
         /* ---------- Subtabs ---------- */
         .subtabs {
             display: flex;
@@ -3302,6 +3451,15 @@
         </div>
     </dialog>
 
+    <!-- Value Changes buddy: pops up when someone opens Value Changes -->
+    <div class="value-buddy" id="valueBuddy" hidden>
+        <div class="buddy-bubble" role="status" aria-live="polite">
+            <button type="button" class="buddy-close" onclick="hideValueBuddy()" aria-label="Close">✕</button>
+            <p id="buddyLine"></p>
+        </div>
+        <img src="assets/value-buddy.png" alt="Cartoon samurai in sunglasses holding a beer" class="buddy-img" width="348" height="520" onclick="showValueBuddy(true)" title="Tap for another take">
+    </div>
+
     <script>
         // Dynasty Tracker v2.2 - Build 2026-04-11
         console.log('Dynasty Tracker v2.2 initialized - Future pick values, trade totals, fairness analysis');
@@ -4647,6 +4805,7 @@
         }
 
         function switchTab(tabName) {
+            if (tabName !== 'war' && typeof hideValueBuddy === 'function') hideValueBuddy();
             console.log('Switching to tab:', tabName);
             
             // Update tab buttons
@@ -8214,6 +8373,99 @@
             alert('Manual trade entry coming soon! For now, use "Load Sleeper Trades" to import your league\'s transactions.');
         }
 
+        // ==================== VALUE CHANGES BUDDY ====================
+        
+        let buddyHideTimer = null;
+        let buddyTypeTimer = null;
+        let buddyLastLine = null;
+        
+        // His takes: Lions, Bud Light, sunglasses, Death Cab for Cutie, and his two sayings.
+        // Some use this league's real risers, drops and 30-day movers when they've loaded.
+        function buddyLines() {
+            const lines = [
+                'Values change, man. If you throw water in the air, it comes back to hit you in the face.',
+                'Dynasty values? Lotta politics. Lotta politics.',
+                'Buy low, sell high, crack a Bud Light either way.',
+                'Sunglasses stay on. Gotta look cool while my rookie\'s value craters.',
+                'I watched the Lions go from 0-16 to contenders. Your bust can bounce back too. Probably not, but still.',
+                'Dan Campbell goes for it on fourth down. You should go for that trade.',
+                'Sold your guy right before he broke out? That\'s The Sound of Settling, my friend.',
+                'When a late-round flier hits, that\'s Soul Meets Body right there.',
+                'Holding a falling stock all the way down? You\'ll follow him into the dark.',
+                'Values are like Detroit weather. Change fast, nobody\'s ready, and I\'m still wearing sunglasses.',
+                'Trade a stud for three maybes? If you throw water in the air, it comes back to hit you in the face.',
+                'Everybody\'s a genius in July. By October? Lotta politics.'
+            ];
+            const data = warRoomData;
+            const fmt = n => Math.round(n).toLocaleString();
+            const rookies = data?.rookieChanges || [];
+            const riser = [...rookies].sort((a, b) => b.change - a.change)[0];
+            const drop = [...rookies].sort((a, b) => a.change - b.change)[0];
+            if (riser && riser.change > 0) {
+                const pct = riser.then > 0 ? ` and he\'s up ${Math.round(riser.change / riser.then * 100)}%` : '';
+                lines.push(`${riser.name} went ${riser.pickLabel}${pct}. Somebody\'s cracking a cold Bud Light tonight.`);
+            }
+            if (drop && drop.change < 0) {
+                lines.push(`${drop.name} went ${drop.pickLabel}, now he\'s down ${fmt(-drop.change)}. If you throw water in the air, it comes back to hit you in the face.`);
+            }
+            const trends = data?.dynasty?.trends || {};
+            const rostered = (data?.teams || []).flatMap(t => t.roster.filter(p => p.position !== 'PICK' && trends[p.id]));
+            const hot = [...rostered].sort((a, b) => trends[b.id] - trends[a.id])[0];
+            const cold = [...rostered].sort((a, b) => trends[a.id] - trends[b.id])[0];
+            if (hot && trends[hot.id] > 0) lines.push(`${hot.name} is up ${fmt(trends[hot.id])} this month. Hotter than a Lions home crowd.`);
+            if (cold && trends[cold.id] < 0) lines.push(`${cold.name} dropped ${fmt(-trends[cold.id])} in 30 days. Lotta politics. Sunglasses on so nobody sees the tears.`);
+            return lines;
+        }
+        
+        // fresh = tapped him for another line (don't replay the entrance)
+        function showValueBuddy(fresh = false) {
+            const buddy = document.getElementById('valueBuddy');
+            const lineEl = document.getElementById('buddyLine');
+            const lines = buddyLines();
+            let line;
+            do { line = lines[Math.floor(Math.random() * lines.length)]; } while (lines.length > 1 && line === buddyLastLine);
+            buddyLastLine = line;
+            
+            if (!fresh || buddy.hidden) {
+                buddy.hidden = false;
+                buddy.classList.remove('leaving');
+                buddy.classList.remove('entering');
+                void buddy.offsetWidth; // restart the entrance animation
+                buddy.classList.add('entering');
+            }
+            
+            // Type the line out
+            clearInterval(buddyTypeTimer);
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduceMotion) {
+                lineEl.textContent = line;
+            } else {
+                let shown = 0;
+                lineEl.textContent = '';
+                const start = fresh ? 0 : 550; // wait for him to land first
+                setTimeout(() => {
+                    buddyTypeTimer = setInterval(() => {
+                        shown += 2;
+                        lineEl.textContent = line.slice(0, shown);
+                        if (shown >= line.length) clearInterval(buddyTypeTimer);
+                    }, 28);
+                }, start);
+            }
+            
+            clearTimeout(buddyHideTimer);
+            buddyHideTimer = setTimeout(hideValueBuddy, 16000);
+        }
+        
+        function hideValueBuddy() {
+            const buddy = document.getElementById('valueBuddy');
+            if (buddy.hidden) return;
+            clearTimeout(buddyHideTimer);
+            clearInterval(buddyTypeTimer);
+            buddy.classList.remove('entering');
+            buddy.classList.add('leaving');
+            setTimeout(() => { if (buddy.classList.contains('leaving')) buddy.hidden = true; }, 450);
+        }
+
         // ==================== SUBTABS ====================
         //
         // Each main tab shows one group of sections at a time. Groups come from section titles, so sections
@@ -8284,6 +8536,7 @@
                     if (!button) return;
                     subtabActive[tab.id] = button.dataset.label;
                     applySubtabs(tab);
+                    if (tab.id === 'warTab' && button.dataset.label === 'Value Changes') showValueBuddy();
                 });
                 if (nav) nav.replaceWith(fresh);
                 else groups[0].sections[0].parentElement.insertBefore(fresh, groups[0].sections[0]);
