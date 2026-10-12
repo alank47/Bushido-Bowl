@@ -1024,6 +1024,11 @@
             color: var(--sumi-soft);
         }
 
+        .matchup-prob.fav {
+            color: var(--matsu);
+            font-weight: 700;
+        }
+
         .matchup-team.is-you .matchup-name > span:first-child {
             color: var(--shu);
         }
@@ -1462,6 +1467,166 @@
                 min-width: 0;
                 width: 100%;
             }
+        }
+
+        /* ---------- Power rankings ---------- */
+        .power-list {
+            list-style: none;
+        }
+
+        .power-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .power-row:last-child {
+            border-bottom: none;
+        }
+
+        .power-rank {
+            width: 28px;
+            text-align: right;
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 800;
+        }
+
+        .power-move {
+            width: 34px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--sumi-soft);
+        }
+
+        .power-move.up { color: var(--matsu); }
+        .power-move.down { color: var(--shu); }
+
+        .power-row .team-avatar {
+            width: 32px;
+            height: 32px;
+        }
+
+        .power-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .power-team {
+            font-family: var(--font-display);
+            font-weight: 800;
+        }
+
+        .power-row.is-you .power-team {
+            color: var(--shu);
+        }
+
+        .power-blurb {
+            font-size: 0.82rem;
+            color: var(--sumi-soft);
+        }
+
+        /* ---------- Trade report card ---------- */
+        .report-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .report-card {
+            padding: 16px 18px;
+            background: var(--washi);
+            border: 1px solid var(--line);
+            border-radius: 3px;
+        }
+
+        .report-sides {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
+            margin: 10px 0;
+        }
+
+        .report-side {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .report-side .team-avatar {
+            width: 28px;
+            height: 28px;
+        }
+
+        .report-got {
+            font-size: 0.88rem;
+        }
+
+        .report-got small,
+        .report-total {
+            color: var(--sumi-soft);
+            font-size: 0.8rem;
+        }
+
+        .report-verdict {
+            margin: 0;
+            padding-top: 10px;
+            border-top: 1px dashed var(--line);
+            font-size: 0.92rem;
+        }
+
+        /* ---------- Draft pick board ---------- */
+        .pick-board-wrap {
+            overflow-x: auto;
+        }
+
+        .pick-board td {
+            vertical-align: middle;
+        }
+
+        .pick-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .pick-chip {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2px 7px;
+            border-radius: 2px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            background: var(--line-soft);
+            color: var(--sumi);
+            line-height: 1.2;
+        }
+
+        .pick-chip.first {
+            background: var(--kin);
+        }
+
+        .pick-chip.acquired {
+            box-shadow: inset 0 0 0 1.5px var(--ai);
+        }
+
+        .pick-chip small {
+            font-size: 0.6rem;
+            font-weight: 500;
+            color: var(--sumi-soft);
+            max-width: 90px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .pick-none {
+            color: var(--sumi-soft);
         }
 
         /* ---------- Mike's recap ---------- */
@@ -2904,6 +3069,12 @@
                 <div id="recapContent"></div>
             </div>
 
+            <!-- Power rankings (this season's form) -->
+            <div class="stat-section" id="powerSection" hidden>
+                <h2 class="section-title" id="powerTitle">Power Rankings</h2>
+                <div id="powerContent"></div>
+            </div>
+
             <!-- Leaderboard -->
             <div class="leaderboard-section">
                 <div class="section-title">Dynasty Leaderboard</div>
@@ -2948,6 +3119,10 @@
             <!-- Trade Tracker Tab -->
             <div id="tradesTab" class="tab-content">
                 <div class="trades-container">
+                    <div class="stat-section">
+                        <h2 class="section-title">Who Won the Trade?</h2>
+                        <div id="tradeReport"><div class="loading"><div class="spinner"></div><p>Adding up every point scored since each trade...</p></div></div>
+                    </div>
                     <div class="stat-section">
                         <h2 class="section-title">📊 Mike's Trade Tracker™ & Analysis</h2>
                         
@@ -3293,10 +3468,13 @@
             lastSeasonMeta = [];
             lastLeaderboard = [];
             allTimeH2H = {};
+            teamStrength = {};
             liveWeekData = null;
             clearTimeout(liveRefreshTimer);
             document.getElementById('liveSection').hidden = true;
             document.getElementById('recapSection').hidden = true;
+            document.getElementById('powerSection').hidden = true;
+            tradeReportLoaded = null;
             document.getElementById('loginSection').style.display = 'block';
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('username').value = '';
@@ -3733,6 +3911,12 @@
                 leagueArchive = archive;
                 lastSeasonMeta = seasonMeta;
                 lastLeaderboard = leaderboard;
+                {
+                    const ids = leaderboard.map(e => e.userId);
+                    const { estimates } = estimateStrengths(archive, ids);
+                    teamStrength = {};
+                    ids.forEach((id, i) => { teamStrength[id] = estimates[i]; });
+                }
                 allTimeH2H = buildHeadToHead(archive);
                 
                 const race = buildPotRace(seasonMeta, leaderboard);
@@ -3744,7 +3928,9 @@
                 renderHallOfShoguns();
                 loadMikeRecap(race);
                 leaderboardReady = true;
+                renderPowerRankings();
                 if (document.getElementById('warTab')?.classList.contains('active')) loadWarRoom();
+                if (document.getElementById('tradesTab')?.classList.contains('active')) loadTradeReport();
                 
             } catch (error) {
                 console.error('Error loading leaderboard:', error);
@@ -4430,6 +4616,7 @@
                 loadWarRoom();
             } else if (tabName === 'trades') {
                 document.getElementById('tradesTab').classList.add('active');
+                loadTradeReport();
             } else if (tabName === 'settings') {
                 document.getElementById('settingsTab').classList.add('active');
                 loadSettingsForm();
@@ -4606,6 +4793,7 @@
             
             const teamRow = (m, opponent) => {
                 const team = teamFor(m.roster_id);
+                const prob = winProbability(team.userId, teamFor(opponent.roster_id).userId);
                 const leading = started && (m.points || 0) > (opponent.points || 0);
                 const isTop = !isPlayoffs && started && (m.points || 0) === topScore;
                 return `
@@ -4613,7 +4801,7 @@
                         ${avatarImg(team.avatar)}
                         <span class="matchup-name">
                             <span>${escapeHTML(team.name)}</span>
-                            <span class="matchup-record">${team.record}</span>
+                            <span class="matchup-record">${team.record}${prob !== null ? ` · <span class="matchup-prob ${prob >= 0.5 ? 'fav' : ''}" title="Pregame chance to win, from each team's scoring this season and last">${Math.round(prob * 100)}% ${started ? 'pregame' : 'to win'}</span>` : ''}</span>
                         </span>
                         <span class="matchup-tags">
                             ${leading && !isPlayoffs ? `<span class="matchup-tag win" title="A win is worth ${SCORING.regularSeasonWin} dynasty points">+${SCORING.regularSeasonWin}</span>` : ''}
@@ -4719,6 +4907,7 @@
         let lastLeaderboard = [];
         let allTimeH2H = {};
         let potOddsCache = null;
+        let teamStrength = {};          // userId -> { mean, sd }: weekly points above league average
         let leaderboardReady = false;   // true once the leaderboard (and everything built from it) is done
         let leaderboardError = null;
         
@@ -4768,6 +4957,22 @@
                 }
             }));
             return h2h;
+        }
+        
+        // Standard normal CDF (Abramowitz-Stegun approximation)
+        function normalCdf(z) {
+            const t = 1 / (1 + 0.2316419 * Math.abs(z));
+            const d = 0.3989423 * Math.exp(-z * z / 2);
+            const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+            return z > 0 ? 1 - p : p;
+        }
+        
+        // Pregame chance that A outscores B this week, from each team's estimated strength and weekly swings
+        function winProbability(userA, userB) {
+            const a = teamStrength[userA], b = teamStrength[userB];
+            if (!a || !b) return null;
+            const sd = Math.sqrt(2 * POT_SIM.weekSd ** 2 + a.sd ** 2 + b.sd ** 2);
+            return normalCdf((a.mean - b.mean) / sd);
         }
         
         function teamInfo(userId) {
@@ -4903,6 +5108,15 @@
             [...teams].sort((a, b) => b.nowTotal - a.nowTotal).forEach((t, i) => { t.nowRank = i + 1; });
             addDraftPicks(data, league, rosters, tradedPicks, dynasty.picks || {});
             teams.forEach(t => evaluateTeam(data, t));
+            
+            // Free agents: players FantasyCalc values who aren't on any roster (taxi and IR included)
+            const rostered = new Set(rosters.flatMap(r => [...(r.players || []), ...(r.taxi || []), ...(r.reserve || [])]));
+            data.freeAgents = [...new Set([...Object.keys(dynasty), ...Object.keys(now)])]
+                .filter(id => !rostered.has(id) && players[id]?.team && GRADE_POSITIONS.includes(players[id].position))
+                .map(id => {
+                    const p = players[id];
+                    return { id, name: `${p.first_name} ${p.last_name}`, position: p.position, nflTeam: p.team, age: p.age || null, now: now[id] || 0, dynasty: dynasty[id] || 0, unavailable: false };
+                });
             
             // Position ranks across the league (1 = best)
             GRADE_POSITIONS.forEach(pos => {
@@ -5231,6 +5445,16 @@
                     </div>
                     <div id="warTrades"><div class="loading"><div class="spinner"></div><p>Searching every possible deal and simulating the pot...</p></div></div>
                 </div>
+                
+                <div class="stat-section">
+                    <h2 class="section-title">Free Agents</h2>
+                    ${renderFreeAgents(data, team)}
+                </div>
+                
+                <div class="stat-section">
+                    <h2 class="section-title">Draft Pick Board</h2>
+                    ${renderPickBoard(data, team)}
+                </div>
             `;
             
             loadTradeIdeas();
@@ -5296,6 +5520,73 @@
                 ? `<p class="section-note">No fair deals with ${escapeHTML(partnerName)} help both teams right now. Try another partner.</p>`
                 : renderTradeIdeas(data, team, ideas, fmt));
             if (button) button.disabled = false;
+        }
+        
+        // Best unrostered players for this team: who'd start now, or who's worth stashing for the final seasons
+        function renderFreeAgents(data, team) {
+            const fmt = n => Math.round(n).toLocaleString();
+            const needs = new Set(GRADE_POSITIONS.filter(pos => team.grades[pos].rank >= 8));
+            const options = (data.freeAgents || []).map(fa => {
+                const after = { ...team, roster: team.roster.concat(fa) };
+                evaluateTeam(data, after);
+                const nowGain = after.nowTotal - team.nowTotal;
+                const futureGain = futureValue(fa, data.yearsToFinal);
+                const slot = after.lineup.lineup.find(x => x.player.id === fa.id)?.slot;
+                const weekly = nowGain * data.pointsPerValue;
+                const score = team.window === 'Contender' ? weekly * 2 + futureGain / 2000
+                    : team.window === 'Rebuilder' ? futureGain / 1000 + weekly * 0.3
+                    : weekly + futureGain / 1500;
+                return { fa, slot, weekly, futureGain, score: score + (needs.has(fa.position) ? 0.3 : 0) };
+            }).filter(o => o.fa.dynasty >= 150 || o.fa.now >= 150).sort((a, b) => b.score - a.score).slice(0, 6);
+            
+            if (!options.length) return '<p class="section-note">No free agents worth adding right now. Every valued player is on a roster.</p>';
+            return `
+                <p class="section-note">The best players on nobody's roster, ranked for a ${team.window.toLowerCase()}${needs.size ? ` that needs ${[...needs].join(' and ')}` : ''}.</p>
+                <ul class="roster-list">${options.map(o => `
+                    <li class="roster-player">
+                        <span class="roster-slot pos-${o.fa.position.toLowerCase()}">${o.fa.position}</span>
+                        <span class="roster-photo"><img src="https://sleepercdn.com/content/nfl/players/thumb/${o.fa.id}.jpg" alt="" onerror="this.remove()"></span>
+                        <span class="roster-player-info">
+                            <span class="roster-player-name">${escapeHTML(o.fa.name)}</span>
+                            <span class="roster-player-meta">${escapeHTML([o.fa.nflTeam, o.fa.age ? `${o.fa.age} yrs` : null].filter(Boolean).join(' · '))} · ${o.slot ? `would start at ${SLOT_LABELS[o.slot] || o.slot} (+${o.weekly.toFixed(1)} pts/week)` : 'bench stash'}</span>
+                        </span>
+                        <span class="idea-values"><span title="Dynasty value">${fmt(o.fa.dynasty)}</span><small>${o.fa.now ? `${fmt(o.fa.now)} now` : 'not scoring now'}</small></span>
+                    </li>
+                `).join('')}</ul>
+            `;
+        }
+        
+        // Every team's future picks in one grid, richest draft capital first
+        function renderPickBoard(data, team) {
+            const fmt = n => Math.round(n).toLocaleString();
+            const seasons = [...new Set(data.teams.flatMap(t => t.roster.filter(p => p.position === 'PICK').map(p => p.pickSeason)))].sort();
+            if (!seasons.length) return '<p class="section-note">No future picks found for this league.</p>';
+            const rows = data.teams.map(t => {
+                const picks = t.roster.filter(p => p.position === 'PICK');
+                return { t, picks, total: picks.reduce((s, p) => s + p.dynasty, 0) };
+            }).sort((a, b) => b.total - a.total);
+            const originalTeam = p => p.name.match(/\((.*)\)$/)?.[1];
+            return `
+                <p class="section-note">Who owns which picks, after every trade. Acquired picks show the original team; ${seasons[0]} picks show their projected slot.</p>
+                <div class="pick-board-wrap">
+                    <table class="stats-table pick-board">
+                        <thead><tr><th>Team</th>${seasons.map(season => `<th>${season}</th>`).join('')}<th>Pick value</th></tr></thead>
+                        <tbody>${rows.map(({ t, picks, total }) => `
+                            <tr ${t.userId === team.userId ? 'class="current-user-row"' : ''}>
+                                <td data-label="Team"><span class="team-label">${avatarImg(t.avatar)}<span>${escapeHTML(t.name)}</span></span></td>
+                                ${seasons.map(season => `<td data-label="${season}"><span class="pick-chips">${
+                                    picks.filter(p => p.pickSeason === season).sort((a, b) => a.pickRound - b.pickRound).map(p => {
+                                        const from = originalTeam(p);
+                                        const tier = p.nflTeam.startsWith('Projected') ? p.nflTeam.replace('Projected ', '') : '';
+                                        return `<span class="pick-chip ${p.pickRound === 1 ? 'first' : ''} ${from ? 'acquired' : ''}" title="${escapeHTML(p.name)}${tier ? ` · projected ${tier}` : ''} · value ${fmt(p.dynasty)}">${ordinal(p.pickRound)}${from ? `<small>${escapeHTML(from)}</small>` : ''}</span>`;
+                                    }).join('') || '<span class="pick-none">—</span>'
+                                }</span></td>`).join('')}
+                                <td data-label="Pick value"><strong>${fmt(total)}</strong></td>
+                            </tr>
+                        `).join('')}</tbody>
+                    </table>
+                </div>
+            `;
         }
         
         function gamePlan(data, team) {
@@ -5497,6 +5788,246 @@
             document.getElementById('recapContent').innerHTML = `
                 <div class="recap-text">${escapeHTML(text)}</div>
                 <p class="race-footnote">Written by AI in the voice of Mike, from this week's results and the pot odds.</p>
+            `;
+        }
+
+        // ==================== POWER RANKINGS ====================
+        
+        // This season's form: record, points per game, team strength and pot odds, each scored against the league
+        function powerScores(stats, odds) {
+            const ids = Object.keys(stats);
+            const z = values => {
+                const mean = values.reduce((a, b) => a + b, 0) / values.length;
+                const sd = Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length) || 1;
+                return values.map(v => (v - mean) / sd);
+            };
+            const winPct = z(ids.map(id => stats[id].games ? (stats[id].w + stats[id].t / 2) / stats[id].games : 0.5));
+            const ppg = z(ids.map(id => stats[id].games ? stats[id].pf / stats[id].games : 0));
+            const strength = z(ids.map(id => teamStrength[id]?.mean || 0));
+            const pot = odds ? z(ids.map(id => odds[id] || 0)) : null;
+            const scores = {};
+            ids.forEach((id, i) => {
+                scores[id] = pot
+                    ? 0.35 * winPct[i] + 0.35 * ppg[i] + 0.15 * strength[i] + 0.15 * pot[i]
+                    : 0.4 * winPct[i] + 0.4 * ppg[i] + 0.2 * strength[i];
+            });
+            const ranks = {};
+            [...ids].sort((a, b) => scores[b] - scores[a]).forEach((id, i) => { ranks[id] = i + 1; });
+            return ranks;
+        }
+        
+        function renderPowerRankings() {
+            const section = document.getElementById('powerSection');
+            const entry = leagueArchive[leagueArchive.length - 1];
+            const games = entry ? seasonGames(entry, { regularOnly: true }) : [];
+            if (!entry || entry.league.status !== 'in_season' || !games.length) { section.hidden = true; return; }
+            
+            const lastWeek = Math.max(...games.map(g => g.week));
+            const ids = lastLeaderboard.map(e => e.userId);
+            const tally = list => {
+                const stats = {};
+                ids.forEach(id => { stats[id] = { w: 0, l: 0, t: 0, pf: 0, games: 0, results: [] }; });
+                list.forEach(g => [[g.a, g.b], [g.b, g.a]].forEach(([me, opp]) => {
+                    const st = stats[me.userId];
+                    if (!st) return;
+                    st.games++;
+                    st.pf += me.points;
+                    const r = me.points > opp.points ? 'W' : me.points < opp.points ? 'L' : 'T';
+                    st[r.toLowerCase()]++;
+                    st.results.push({ week: g.week, r, margin: me.points - opp.points, opp: opp.userId });
+                }));
+                return stats;
+            };
+            const nowStats = tally(games);
+            const now = powerScores(nowStats, potOddsCache?.now);
+            const before = lastWeek > 1 ? powerScores(tally(games.filter(g => g.week < lastWeek)), potOddsCache?.lastWeek) : null;
+            
+            const ppgRank = {};
+            [...ids].sort((a, b) => nowStats[b].pf / (nowStats[b].games || 1) - nowStats[a].pf / (nowStats[a].games || 1)).forEach((id, i) => { ppgRank[id] = i + 1; });
+            const currentUser = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}');
+            
+            const rows = [...ids].sort((a, b) => now[a] - now[b]).map(id => {
+                const st = nowStats[id];
+                const team = teamInfo(id);
+                const move = before ? before[id] - now[id] : 0;
+                const last = st.results.filter(x => x.week === lastWeek)[0];
+                let streak = 0;
+                for (let i = st.results.length - 1; i >= 0 && st.results[i].r === st.results[st.results.length - 1].r; i--) streak++;
+                const streakText = st.results.length && streak >= 2 ? ` · ${st.results[st.results.length - 1].r}${streak} streak` : '';
+                const lastText = last ? ` · ${last.r === 'W' ? 'Beat' : last.r === 'L' ? 'Lost to' : 'Tied'} ${escapeHTML(teamInfo(last.opp).name)}${last.r === 'T' ? '' : ` by ${Math.abs(last.margin).toFixed(1)}`}` : '';
+                return `
+                    <li class="power-row ${id === currentUser.user_id ? 'is-you' : ''}">
+                        <span class="power-rank">${now[id]}</span>
+                        <span class="power-move ${move > 0 ? 'up' : move < 0 ? 'down' : ''}">${before ? (move > 0 ? `▲${move}` : move < 0 ? `▼${-move}` : '–') : ''}</span>
+                        ${avatarImg(team.avatar)}
+                        <span class="power-info">
+                            <span class="power-team">${escapeHTML(team.name)}</span>
+                            <span class="power-blurb">${st.w}–${st.l}${st.t ? `–${st.t}` : ''} · ${(st.pf / (st.games || 1)).toFixed(1)} ppg (#${ppgRank[id]})${lastText}${streakText}</span>
+                        </span>
+                    </li>
+                `;
+            }).join('');
+            
+            document.getElementById('powerTitle').textContent = `Week ${lastWeek} Power Rankings`;
+            document.getElementById('powerContent').innerHTML = `
+                <ol class="power-list">${rows}</ol>
+                <p class="race-footnote">Blends this season's record and points per game with each team's strength across seasons${potOddsCache ? ' and its pot odds' : ''}. Arrows show movement since last week.</p>
+            `;
+            section.hidden = false;
+        }
+        
+        // ==================== TRADE REPORT CARD ====================
+        
+        let tradeReportLoaded = null;
+        
+        async function loadTradeReport() {
+            const el = document.getElementById('tradeReport');
+            if (!el) return;
+            if (leaderboardError) { el.innerHTML = `<div class="error">Couldn't load trades: ${escapeHTML(leaderboardError.message)}</div>`; return; }
+            if (!leaderboardReady) return; // the leaderboard calls back here when it's done
+            const key = sessionStorage.getItem('leagueId');
+            if (tradeReportLoaded === key) return;
+            tradeReportLoaded = key;
+            el.innerHTML = '<div class="loading"><div class="spinner"></div><p>Adding up every point scored since each trade...</p></div>';
+            try {
+                const [players, values, txLists] = await Promise.all([
+                    getSleeperPlayers(),
+                    getPlayerValues(),
+                    Promise.all(leagueArchive.map(e => fetchSleeperTransactions(e.league.league_id)))
+                ]);
+                el.innerHTML = renderTradeReport(buildTradeReport(players, values, txLists));
+            } catch (error) {
+                console.error('Trade report error:', error);
+                tradeReportLoaded = null;
+                el.innerHTML = `<div class="error">Couldn't build the trade report: ${escapeHTML(error.message)}</div>`;
+            }
+        }
+        
+        // Points a player scored while in this manager's starting lineup, from a given season and week on
+        function startingPointsFor(playerId, userId, fromSeason, fromWeek) {
+            let points = 0, starts = 0;
+            leagueArchive.forEach(entry => {
+                if (entry.season < fromSeason) return;
+                const rosterId = entry.rosters.find(r => r.owner_id === userId)?.roster_id;
+                if (rosterId == null) return;
+                entry.matchups.forEach(({ week, matchups }) => {
+                    if (week > entry.lastFinishedWeek || (entry.season === fromSeason && week < fromWeek)) return;
+                    const m = matchups?.find(x => x.roster_id === rosterId);
+                    const i = m?.starters?.indexOf(playerId) ?? -1;
+                    if (i >= 0) { points += m.starters_points?.[i] || 0; starts++; }
+                });
+            });
+            return { points, starts };
+        }
+        
+        function buildTradeReport(players, values, txLists) {
+            const name = id => {
+                const p = players[id];
+                return p?.first_name ? `${p.first_name} ${p.last_name}` : id;
+            };
+            const trades = [];
+            leagueArchive.forEach((entry, i) => {
+                const owner = {};
+                entry.rosters.forEach(r => { owner[r.roster_id] = r.owner_id; });
+                (txLists[i] || []).filter(t => t.type === 'trade' && t.status === 'complete').forEach(t => {
+                    const adds = Object.entries(t.adds || {});
+                    const leg = t.leg || 1;
+                    const sides = (t.roster_ids || []).map(rid => {
+                        const userId = owner[rid];
+                        const got = adds.filter(([, r]) => r === rid).map(([pid]) => {
+                            const scored = startingPointsFor(pid, userId, entry.season, leg);
+                            return { id: pid, name: name(pid), ...scored, value: values[pid] || 0 };
+                        });
+                        const picks = (t.draft_picks || []).filter(p => p.owner_id === rid).map(p => `${p.season} ${ordinal(p.round)}`);
+                        return { userId, got, picks, points: got.reduce((s, p) => s + p.points, 0), value: got.reduce((s, p) => s + p.value, 0) };
+                    }).filter(side => side.userId);
+                    if (sides.length < 2) return;
+                    // Each side's net = what it got minus what the other side(s) got
+                    const totalPoints = sides.reduce((s, x) => s + x.points, 0);
+                    const totalValue = sides.reduce((s, x) => s + x.value, 0);
+                    sides.forEach(side => {
+                        const others = sides.length - 1;
+                        side.netPoints = side.points - (totalPoints - side.points) / others;
+                        side.netValue = side.value - (totalValue - side.value) / others;
+                    });
+                    const started = sides.some(side => side.got.some(p => p.starts > 0));
+                    trades.push({ season: entry.season, week: leg, created: t.created, sides, started });
+                });
+            });
+            
+            // Per-manager tally
+            const managers = {};
+            trades.forEach(trade => trade.sides.forEach(side => {
+                const m = managers[side.userId] = managers[side.userId] || { userId: side.userId, trades: 0, won: 0, lost: 0, netPoints: 0, netValue: 0 };
+                m.trades++;
+                m.netPoints += side.netPoints;
+                m.netValue += side.netValue;
+                if (trade.started && side.netPoints > 0.5) m.won++;
+                else if (trade.started && side.netPoints < -0.5) m.lost++;
+            }));
+            return { trades, managers: Object.values(managers).sort((a, b) => b.netPoints - a.netPoints) };
+        }
+        
+        function renderTradeReport({ trades, managers }) {
+            if (!trades.length) return '<p class="section-note">No completed trades yet.</p>';
+            const fmt = n => Math.round(n).toLocaleString();
+            const signed = (n, digits = 1) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(digits)}`;
+            const currentUser = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}');
+            
+            const board = `
+                <h3 class="roster-group-title">Fleece Leaderboard</h3>
+                <table class="stats-table">
+                    <thead><tr><th>Manager</th><th>Trades</th><th>Won–Lost</th><th>Net points since</th><th>Net value now</th></tr></thead>
+                    <tbody>${managers.map(m => {
+                        const team = teamInfo(m.userId);
+                        return `
+                            <tr ${m.userId === currentUser.user_id ? 'class="current-user-row"' : ''}>
+                                <td data-label="Manager">${teamLabel({ metadata: { avatar: team.avatar } }, escapeHTML(team.name))}</td>
+                                <td data-label="Trades">${m.trades}</td>
+                                <td data-label="Won–Lost">${m.won}–${m.lost}</td>
+                                <td data-label="Net points since"><span class="luck ${m.netPoints >= 0.5 ? 'lucky' : m.netPoints <= -0.5 ? 'unlucky' : ''}">${signed(m.netPoints)}</span></td>
+                                <td data-label="Net value now">${m.netValue >= 0 ? '+' : '−'}${fmt(Math.abs(m.netValue))}</td>
+                            </tr>
+                        `;
+                    }).join('')}</tbody>
+                </table>
+            `;
+            
+            const biggest = trades.filter(t => t.started)
+                .map(t => ({ ...t, winner: [...t.sides].sort((a, b) => b.netPoints - a.netPoints)[0] }))
+                .sort((a, b) => b.winner.netPoints - a.winner.netPoints)
+                .slice(0, 6);
+            const sideHtml = side => {
+                const team = teamInfo(side.userId);
+                const items = side.got.map(p => `${escapeHTML(p.name)} <small>${p.points.toFixed(1)} pts</small>`).concat(side.picks.map(pk => `${escapeHTML(pk)} <small>pick</small>`));
+                return `
+                    <div class="report-side">
+                        <span class="team-label">${avatarImg(team.avatar)}<strong>${escapeHTML(team.name)}</strong></span>
+                        <span class="report-got">Got: ${items.join(', ') || 'nothing'}</span>
+                        <span class="report-total">${side.points.toFixed(1)} starting pts since</span>
+                    </div>
+                `;
+            };
+            const cards = biggest.map(t => {
+                const w = t.winner;
+                const valueLeader = [...t.sides].sort((a, b) => b.netValue - a.netValue)[0];
+                const valueNote = valueLeader.userId !== w.userId && valueLeader.netValue > 300
+                    ? ` But ${escapeHTML(teamInfo(valueLeader.userId).name)} got more long-term value (+${fmt(valueLeader.netValue)} in dynasty value).`
+                    : '';
+                return `
+                    <li class="report-card">
+                        <span class="trade-date">${t.season} · week ${t.week}</span>
+                        <div class="report-sides">${t.sides.map(sideHtml).join('')}</div>
+                        <p class="report-verdict"><strong>${escapeHTML(teamInfo(w.userId).name)}</strong> is winning by ${w.netPoints.toFixed(1)} starting points.${valueNote}</p>
+                    </li>
+                `;
+            }).join('');
+            
+            return `
+                <p class="section-note">Every completed trade, judged by what really happened: the points each player has scored while starting for his new team.</p>
+                ${board}
+                ${cards ? `<h3 class="roster-group-title" style="margin-top: 26px;">Biggest Wins So Far</h3><ol class="report-list">${cards}</ol>` : ''}
+                <p class="race-footnote">Points only count in weeks a player was in his new team's starting lineup. Draft picks don't score until they become players, so "Net value now" uses FantasyCalc's current dynasty values to show the long-term picture.</p>
             `;
         }
 
@@ -6280,7 +6811,11 @@
         // ==================== TRADE TRACKER FUNCTIONS ====================
 
         // Fetch Sleeper transactions
-        async function fetchSleeperTransactions(leagueId) {
+        function fetchSleeperTransactions(leagueId) {
+            return remembered(`transactions:${leagueId}`, () => loadSleeperTransactions(leagueId));
+        }
+        
+        async function loadSleeperTransactions(leagueId) {
             try {
                 // Sleeper API requires fetching week by week
                 // NFL regular season is 18 weeks, but trades can happen in offseason too
