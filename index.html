@@ -1579,6 +1579,31 @@
             font-size: 0.92rem;
         }
 
+        /* ---------- Value changes ---------- */
+        .value-cols {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 22px;
+        }
+
+        .value-delta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            font-family: var(--font-display);
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .value-delta small {
+            font-family: var(--font-body);
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        .value-delta.up { color: var(--matsu); }
+        .value-delta.down { color: var(--shu); }
+
         /* ---------- Draft pick board ---------- */
         .pick-board-wrap {
             overflow-x: auto;
@@ -5061,12 +5086,15 @@
             if (!response.ok) throw new Error('Could not load player values');
             const values = {};
             const picks = {};
+            const trends = {};
             (await response.json()).forEach(item => {
                 const id = item.player?.sleeperId;
                 if (item.player?.position === 'PICK') picks[item.player.name] = item.value || 0; // picks carry their own "FP_" ids
-                else if (id) values[id] = item.value || 0;
+                else if (id) { values[id] = item.value || 0; trends[id] = item.trend30Day || 0; }
             });
-            Object.defineProperty(values, 'picks', { value: picks }); // pick values ride along, not as a player id
+            // Pick values and 30-day trends ride along, not as player ids
+            Object.defineProperty(values, 'picks', { value: picks });
+            Object.defineProperty(values, 'trends', { value: trends });
             return values;
         }
         
@@ -5152,7 +5180,7 @@
                 return { userId: r.owner_id, rosterId: r.roster_id, roster, ...teamInfo(r.owner_id) };
             });
             
-            const data = { slots, season, finalSeason, yearsToFinal, teams };
+            const data = { slots, season, finalSeason, yearsToFinal, teams, players, dynasty };
             teams.forEach(t => evaluateTeam(data, t));
             
             // Future draft picks: lineup ranks (above) feed the projected draft slot, then picks join each roster
@@ -5600,7 +5628,13 @@
                     <h2 class="section-title">Draft Pick Board</h2>
                     ${renderPickBoard(data, team)}
                 </div>
+                
+                <div class="stat-section">
+                    <h2 class="section-title">Value Changes</h2>
+                    <div id="valueChanges"><div class="loading"><div class="spinner"></div><p>Comparing every rookie to his draft slot...</p></div></div>
+                </div>
             `;
+            loadValueChanges();
             
             loadTradeIdeas();
         }
@@ -5764,6 +5798,121 @@
                         `).join('')}</tbody>
                     </table>
                 </div>
+            `;
+        }
+        
+        // ---------- Value changes ----------
+        // FantasyCalc has no value history, so a rookie's value "then" is measured by where this league drafted him:
+        // the value today of whoever sits at that same spot in his rookie class. Plus FantasyCalc's 30-day trend.
+        async function loadValueChanges() {
+            const el = document.getElementById('valueChanges');
+            const data = warRoomData;
+            if (!el || !data) return;
+            try {
+                if (!data.rookieChanges) data.rookieChanges = await buildRookieChanges(data);
+                if (document.getElementById('valueChanges') === el) el.innerHTML = renderValueChanges(data);
+            } catch (error) {
+                console.error('Value changes error:', error);
+                el.innerHTML = `<div class="error">Couldn't load value changes: ${escapeHTML(error.message)}</div>`;
+            }
+        }
+        
+        async function buildRookieChanges(data) {
+            const drafts = (await Promise.all(leagueArchive.map(entry =>
+                remembered(`drafts:${entry.league.league_id}`, () => fetch(`https://api.sleeper.app/v1/league/${entry.league.league_id}/drafts`).then(r => (r.ok ? r.json() : [])))
+            ))).flat().filter(d => d.status === 'complete');
+            const pickLists = await Promise.all(drafts.map(d =>
+                remembered(`draftpicks:${d.draft_id}`, () => fetch(`https://api.sleeper.app/v1/draft/${d.draft_id}/picks`).then(r => (r.ok ? r.json() : [])))
+            ));
+            
+            const ownerOf = {};
+            data.teams.forEach(t => t.roster.forEach(p => { ownerOf[p.id] = t; }));
+            const rows = [];
+            drafts.forEach((draft, i) => {
+                // Rookies in this draft, in the order this league took them
+                const rookies = (pickLists[i] || [])
+                    .filter(p => String(p.metadata?.years_exp) === '0' && GRADE_POSITIONS.includes(p.metadata?.position))
+                    .sort((a, b) => a.pick_no - b.pick_no);
+                const slotValues = rookies.map(p => data.dynasty[p.player_id] || 0).sort((a, b) => b - a);
+                const teamsInDraft = draft.settings?.teams || data.teams.length;
+                rookies.forEach((p, slot) => {
+                    const now = data.dynasty[p.player_id] || 0;
+                    const then = slotValues[slot] || 0;
+                    const info = data.players[p.player_id] || {};
+                    rows.push({
+                        id: p.player_id,
+                        name: info.first_name ? `${info.first_name} ${info.last_name}` : `${p.metadata.first_name} ${p.metadata.last_name}`,
+                        position: p.metadata.position,
+                        nflTeam: info.team || 'FA',
+                        age: info.age || null,
+                        season: Number(draft.season),
+                        pickLabel: `${p.round}.${String(((p.pick_no - 1) % teamsInDraft) + 1).padStart(2, '0')}`,
+                        startup: (pickLists[i] || []).length > teamsInDraft * 6, // a startup draft has veterans and many rounds
+                        then, now, change: now - then,
+                        owner: ownerOf[p.player_id] || null
+                    });
+                });
+            });
+            return rows;
+        }
+        
+        function renderValueChanges(data) {
+            const fmt = n => Math.round(n).toLocaleString();
+            const signed = n => `${n >= 0 ? '+' : '−'}${fmt(Math.abs(n))}`;
+            const pct = (change, base) => (base > 0 ? ` (${change >= 0 ? '+' : '−'}${Math.round(Math.abs(change) / base * 100)}%)` : '');
+            const photo = id => `<span class="roster-photo"><img src="https://sleepercdn.com/content/nfl/players/thumb/${id}.jpg" alt="" onerror="this.remove()"></span>`;
+            const ownerText = owner => (owner ? escapeHTML(owner.name) : 'Free agent');
+            
+            const rookieRow = r => `
+                <li class="roster-player">
+                    <span class="roster-slot pos-${r.position.toLowerCase()}">${r.position}</span>
+                    ${photo(r.id)}
+                    <span class="roster-player-info">
+                        <span class="roster-player-name">${escapeHTML(r.name)}</span>
+                        <span class="roster-player-meta">Drafted ${r.pickLabel} in ${r.season}${r.startup ? ' (startup)' : ''} · slot worth ${fmt(r.then)} · now ${fmt(r.now)} · ${ownerText(r.owner)}</span>
+                    </span>
+                    <span class="value-delta ${r.change >= 0 ? 'up' : 'down'}">${signed(r.change)}<small>${pct(r.change, r.then)}</small></span>
+                </li>
+            `;
+            const rookies = data.rookieChanges || [];
+            const risers = [...rookies].filter(r => r.change > 0).sort((a, b) => b.change - a.change).slice(0, 8);
+            const drops = [...rookies].filter(r => r.change < 0).sort((a, b) => a.change - b.change).slice(0, 8);
+            
+            // Last 30 days, among rostered players
+            const trends = data.dynasty.trends || {};
+            const rostered = data.teams.flatMap(t => t.roster.filter(p => p.position !== 'PICK').map(p => ({ p, owner: t })));
+            const moverRow = ({ p, owner }) => `
+                <li class="roster-player">
+                    <span class="roster-slot pos-${p.position.toLowerCase()}">${p.position}</span>
+                    ${photo(p.id)}
+                    <span class="roster-player-info">
+                        <span class="roster-player-name">${escapeHTML(p.name)}</span>
+                        <span class="roster-player-meta">Now ${fmt(p.dynasty)} · ${ownerText(owner)}</span>
+                    </span>
+                    <span class="value-delta ${trends[p.id] >= 0 ? 'up' : 'down'}">${signed(trends[p.id])}<small>${pct(trends[p.id], p.dynasty - trends[p.id])}</small></span>
+                </li>
+            `;
+            const withTrend = rostered.filter(x => trends[x.p.id]);
+            const hot = [...withTrend].filter(x => trends[x.p.id] > 0).sort((a, b) => trends[b.p.id] - trends[a.p.id]).slice(0, 6);
+            const cold = [...withTrend].filter(x => trends[x.p.id] < 0).sort((a, b) => trends[a.p.id] - trends[b.p.id]).slice(0, 6);
+            const list = (title, rows, fn, empty) => `
+                <div class="value-col">
+                    <h3 class="roster-group-title">${title}</h3>
+                    ${rows.length ? `<ul class="roster-list">${rows.map(fn).join('')}</ul>` : `<p class="section-note">${empty}</p>`}
+                </div>
+            `;
+            
+            return `
+                <p class="section-note">How every rookie this league has drafted is doing against where he was taken. "Slot worth" is today's value of whoever sits at that same spot in his rookie class, so a late pick now worth more is a steal, and an early pick worth less is a drop.</p>
+                <div class="value-cols">
+                    ${list('Biggest Risers Since Rookie Year', risers, rookieRow, 'No rookie has outgrown his draft slot yet.')}
+                    ${list('Biggest Drops Since Rookie Year', drops, rookieRow, 'No rookie has fallen below his draft slot yet.')}
+                </div>
+                <div class="value-cols" style="margin-top: 20px;">
+                    ${list('Hot: Last 30 Days', hot, moverRow, 'No big risers this month.')}
+                    ${list('Cold: Last 30 Days', cold, moverRow, 'No big drops this month.')}
+                </div>
+                <p class="race-footnote">Values are FantasyCalc dynasty values for this league's format. FantasyCalc doesn't publish older values, so rookie-year changes are measured against draft slots, and the last-30-days lists use its 30-day trend for rostered players.</p>
             `;
         }
         
@@ -8083,6 +8232,7 @@
             [/^Trade Ideas$/, 'Trade Ideas'],
             [/^Free Agents$/, 'Free Agents'],
             [/^Draft Pick Board$/, 'Draft Picks'],
+            [/^Value Changes$/, 'Value Changes'],
             [/^Hall of Shoguns$/, 'Champions'],
             [/^All-Time Records$/, 'Records'],
             [/Awards/, 'Season Awards'],
