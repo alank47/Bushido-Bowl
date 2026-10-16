@@ -2055,6 +2055,104 @@
             .odds-track { grid-area: track; height: 12px; }
         }
 
+        /* ---------- Path to the Pot & Sliding Doors ---------- */
+        .path-headline {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            line-height: 1.5;
+            margin: 6px 0 18px;
+        }
+
+        .path-headline strong {
+            color: var(--shu);
+        }
+
+        .path-subhead {
+            font-family: var(--font-display);
+            font-size: 1.05rem;
+            margin: 26px 0 8px;
+        }
+
+        .path-label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .path-label small {
+            font-size: 0.75rem;
+            color: var(--sumi-soft);
+        }
+
+        .path-list .odds-row:nth-child(n+5) .odds-bar {
+            background: var(--ai);
+        }
+
+        .path-row.is-hold .path-label strong,
+        .path-row.is-hold .odds-value {
+            color: var(--shu);
+        }
+
+        .path-row.is-likely {
+            background: rgba(201, 162, 79, 0.12);
+        }
+
+        .path-row.is-rare {
+            opacity: 0.5;
+        }
+
+        .path-chase {
+            list-style: none;
+            display: grid;
+            gap: 6px;
+        }
+
+        .path-chase li::before {
+            content: '— ';
+            color: var(--shu);
+        }
+
+        .doors-list {
+            list-style: none;
+            display: grid;
+            gap: 10px;
+        }
+
+        .door {
+            display: grid;
+            gap: 3px;
+            padding: 12px 14px;
+            background: var(--washi-deep);
+            border-left: 3px solid var(--shu);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .door-when {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--shu);
+        }
+
+        .door-game {
+            font-family: var(--font-display);
+            font-size: 1.05rem;
+        }
+
+        .door-fix {
+            font-size: 0.9rem;
+            color: var(--sumi-soft);
+        }
+
+        .doors-gifts {
+            margin-top: 14px;
+        }
+
+        .doors-table tr.is-you td {
+            background: rgba(179, 54, 43, 0.06);
+        }
+
         /* ---------- Value Changes buddy ---------- */
         .value-buddy {
             position: fixed;
@@ -4403,6 +4501,9 @@
             tradeMachine = { a: null, b: null, sendA: new Set(), sendB: new Set(), take: null };
             requestCache = {};
             potOddsCache = null;
+            doorsData = null;
+            pathTeam = null;
+            doorsTeam = null;
             leaderboardReady = false;
             leaderboardError = null;
             leagueArchive = [];
@@ -7690,9 +7791,10 @@
             return { estimates, leagueAvg };
         }
         
-        // options.adjust = { userId: extra weekly points } to test a trade; options.worlds; options.lastWeek
+        // options.adjust = { userId: extra weekly points } to test a trade; options.worlds; options.lastWeek;
+        // options.bonus = { userId: { points, wins } } to replay the standings as if some games went the other way
         function computePotOdds(archive, seasonMeta, leaderboard, options = {}) {
-            const { adjust = {}, worlds = worldsFor(leaderboard.length), lastWeek: wantLastWeek = true } = options;
+            const { adjust = {}, bonus = {}, worlds = worldsFor(leaderboard.length), lastWeek: wantLastWeek = true } = options;
             if (!archive.length || !leaderboard.length) return null;
             const settingsNow = getSettings();
             const finalSeason = seasonMeta[0].season + settingsNow.dynastyLength - 1;
@@ -7714,37 +7816,68 @@
             const playoffTeams = current.league.settings.playoff_teams || 6;
             const ownerOfRoster = {};
             current.rosters.forEach(r => { ownerOfRoster[r.roster_id] = r.owner_id; });
-            const baseWins = ids.map(id => current.rosters.find(r => r.owner_id === id)?.settings?.wins || 0);
+            const baseWins = ids.map(id => Math.max(0, (current.rosters.find(r => r.owner_id === id)?.settings?.wins || 0) + (bonus[id]?.wins || 0)));
             const basePf = ids.map(id => {
                 const st = current.rosters.find(r => r.owner_id === id)?.settings || {};
                 return (st.fpts || 0) + (st.fpts_decimal || 0) / 100;
             });
-            const baseTotals = leaderboard.map(e => e.points);
+            const baseTotals = leaderboard.map(e => e.points + (bonus[e.userId]?.points || 0));
             const inProgress = !meta.complete;
             const futureSeasons = Math.max(0, finalSeason - meta.season);
             
-            const run = (totals0, wins0, pf0, startWeek) => {
+            // track: also tally, for the next season played, how the pot went in worlds with each number of wins,
+            // with and without a playoff spot, and with a title (for Path to the Pot)
+            const run = (totals0, wins0, pf0, startWeek, track = false) => {
                 const rng = seededRandom(POT_SIM.seed);
                 const potWins = ids.map(() => 0);
                 const n = ids.length;
+                const paths = track ? ids.map(() => ({ byWins: [], made: [0, 0], missed: [0, 0], title: [0, 0] })) : null;
                 for (let world = 0; world < worlds; world++) {
                     let strength = estimates.map(e => e.mean + e.sd * rng.normal());
                     const totals = [...totals0];
-                    if (inProgress) simulateSeason(rng, strength, totals, [...wins0], [...pf0], startWeek, regularWeeks, playoffTeams, leagueAvg);
+                    let first = null, firstWins = null;
+                    if (inProgress) {
+                        firstWins = [...wins0];
+                        first = simulateSeason(rng, strength, totals, firstWins, [...pf0], startWeek, regularWeeks, playoffTeams, leagueAvg);
+                    }
                     for (let s = 0; s < futureSeasons; s++) {
                         strength = strength.map(x => carryover * x + Math.sqrt(1 - carryover ** 2) * trueSd * rng.normal());
-                        simulateSeason(rng, strength, totals, Array(n).fill(0), Array(n).fill(0), 1, regularWeeks, playoffTeams, leagueAvg);
+                        const wins = Array(n).fill(0);
+                        const result = simulateSeason(rng, strength, totals, wins, Array(n).fill(0), 1, regularWeeks, playoffTeams, leagueAvg);
+                        if (!first) { first = result; firstWins = wins; }
                     }
                     let best = 0;
                     for (let i = 1; i < n; i++) if (totals[i] > totals[best]) best = i;
                     potWins[best]++;
+                    if (paths && first) {
+                        for (let i = 0; i < n; i++) {
+                            const won = best === i ? 1 : 0;
+                            const k = firstWins[i] - (inProgress ? wins0[i] : 0);
+                            const bucket = paths[i].byWins[k] || (paths[i].byWins[k] = [0, 0]);
+                            bucket[0]++; bucket[1] += won;
+                            const spot = first.seeds.includes(i) ? paths[i].made : paths[i].missed;
+                            spot[0]++; spot[1] += won;
+                            if (first.champion === i) { paths[i].title[0]++; paths[i].title[1] += won; }
+                        }
+                    }
                 }
                 const odds = {};
                 ids.forEach((id, i) => { odds[id] = potWins[i] / worlds * 100; });
+                if (paths) {
+                    odds.paths = {};
+                    ids.forEach((id, i) => { odds.paths[id] = paths[i]; });
+                }
                 return odds;
             };
             
-            const now = run(baseTotals, baseWins, basePf, inProgress ? meta.weeksPlayed + 1 : 1);
+            const now = run(baseTotals, baseWins, basePf, inProgress ? meta.weeksPlayed + 1 : 1, true);
+            const tracked = now.paths;
+            delete now.paths;
+            const paths = futureSeasons || inProgress ? {
+                season: inProgress ? meta.season : meta.season + 1,
+                gamesLeft: inProgress ? Math.max(0, regularWeeks - meta.weeksPlayed) : regularWeeks,
+                byUser: tracked
+            } : null;
             
             // Same simulation from one week earlier, to show who moved
             let lastWeek = null;
@@ -7768,7 +7901,7 @@
                 lastWeek = run(totals, wins, pf, meta.weeksPlayed);
             }
             
-            return { now, lastWeek, week: inProgress ? meta.weeksPlayed : null, season: meta.season, worlds };
+            return { now, lastWeek, paths, week: inProgress ? meta.weeksPlayed : null, season: meta.season, worlds };
         }
         
         // One season (or the rest of one): weekly games, high-score bonus, then a seeded playoff bracket
@@ -7812,10 +7945,13 @@
                 round = advancing.sort((a, b) => seedRank[a] - seedRank[b]);
                 byes = 0;
             }
+            let champion = -1;
             if (round.length === 2) {
                 round.forEach(team => { totals[team] += SCORING.championshipAppearance; });
-                totals[play(round[0], round[1])] += SCORING.titleWin;
+                champion = play(round[0], round[1]);
+                totals[champion] += SCORING.titleWin;
             }
+            return { seeds, champion };
         }
         
         // Small odds note on the overview's rank card
@@ -8021,6 +8157,13 @@
                 
                 ${race.odds ? renderOddsSection(race, currentUser.user_id) : ''}
                 
+                ${race.odds?.paths ? '<div class="stat-section" id="pathSection"></div>' : ''}
+                
+                <div class="stat-section" id="doorsSection">
+                    <h2 class="section-title">Sliding Doors</h2>
+                    <p class="section-note">Replaying every lineup…</p>
+                </div>
+                
                 <div class="stat-section">
                     <h2 class="section-title">The Race</h2>
                     <div class="race-legend">
@@ -8052,6 +8195,342 @@
                     <p class="race-footnote">${!current.complete ? `* ${current.season} is in progress; playoff points are added when the season ends. ` : ''}"On pace for" projects each team's weekly scoring rate and average postseason haul across the seasons left. "Max possible" assumes a team wins every remaining game, weekly high score and title.</p>
                 </div>
             `;
+            renderPathToPot();
+            loadSlidingDoors();
+        }
+
+        // ==================== PATH TO THE POT ====================
+        //
+        // Reads the pot simulation backwards: in the worlds where a team won k of its remaining games (or made the
+        // playoffs, or won the title), how often did it end up with the pot?
+
+        let pathTeam = null;
+
+        function raceTeamOptions(selected) {
+            return lastLeaderboard.map(t => `<option value="${t.userId}" ${t.userId === selected ? 'selected' : ''}>${escapeHTML(t.teamName)}</option>`).join('');
+        }
+
+        function defaultRaceTeam() {
+            const me = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}').user_id;
+            return lastLeaderboard.some(t => t.userId === me) ? me : lastLeaderboard[0]?.userId;
+        }
+
+        // Everything Path to the Pot shows for one team (shared by the section and its scroll card)
+        function pathToPot(userId) {
+            const odds = potOddsCache;
+            const p = odds?.paths?.byUser?.[userId];
+            const team = lastLeaderboard.find(t => t.userId === userId);
+            if (!p || !team) return null;
+            const { season, gamesLeft } = odds.paths;
+            const nowPct = odds.now[userId] || 0;
+            const rate = ([worlds, pot]) => (worlds ? pot / worlds * 100 : null);
+            const minWorlds = Math.max(20, odds.worlds * 0.004); // fewer than this and the number is just noise
+
+            const rows = [];
+            for (let k = gamesLeft; k >= 0; k--) {
+                const bucket = p.byWins[k] || [0, 0];
+                rows.push({ wins: k, share: bucket[0] / odds.worlds * 100, pct: rate(bucket), rare: bucket[0] < minWorlds });
+            }
+            const likely = rows.reduce((a, b) => (b.share > a.share ? b : a), rows[0]);
+            // Fewest wins that keeps the odds at least where they are today
+            const hold = [...rows].reverse().find(r => !r.rare && r.pct >= nowPct);
+
+            const rank = lastLeaderboard.indexOf(team);
+            const above = rank > 0 ? lastLeaderboard[rank - 1] : null;
+            const below = lastLeaderboard[rank + 1] || null;
+            return {
+                team, season, gamesLeft, nowPct, rows, likely, hold,
+                playoffShare: p.made[0] / odds.worlds * 100,
+                made: rate(p.made), missed: rate(p.missed),
+                titleShare: p.title[0] / odds.worlds * 100, title: rate(p.title),
+                rank: rank + 1, above, below,
+                leader: rank > 0 ? lastLeaderboard[0] : null,
+                worlds: odds.worlds
+            };
+        }
+
+        function winsWorth(points) {
+            const wins = points / SCORING.regularSeasonWin;
+            return `${wins < 1 ? 'less than 1 win' : `about ${Math.round(wins)} win${Math.round(wins) === 1 ? '' : 's'}`}`;
+        }
+
+        function renderPathToPot(userId) {
+            const el = document.getElementById('pathSection');
+            if (!el) return;
+            if (userId) pathTeam = userId;
+            if (!lastLeaderboard.some(t => t.userId === pathTeam)) pathTeam = defaultRaceTeam();
+            const path = pathToPot(pathTeam);
+            if (!path) { el.hidden = true; return; }
+            el.hidden = false;
+            const me = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}').user_id;
+            const you = pathTeam === me;
+            const name = escapeHTML(path.team.teamName);
+            const pts = n => (Math.round(n * 10) / 10).toLocaleString();
+            const { season, gamesLeft, rows, likely, hold } = path;
+            const shown = rows.filter(r => r.pct !== null);
+            const maxPct = Math.max(...shown.filter(r => !r.rare).map(r => r.pct), 1);
+
+            let headline;
+            if (!gamesLeft) headline = `The ${season} regular season is done, so it comes down to the playoffs.`;
+            else if (hold && hold.wins === 0) headline = `${you ? 'Your' : `${name}'s`} odds barely depend on the rest of ${season}. It's a long race.`;
+            else if (hold) headline = `${you ? 'Win' : `${name} needs to win`} <strong>${hold.wins} of ${you ? 'your' : 'their'} last ${gamesLeft}</strong> to keep ${you ? 'your' : 'their'} pot odds at ${formatOdds(path.nowPct)} or better.`;
+            else headline = `Even a perfect finish to ${season} doesn't lift ${you ? 'your' : 'their'} odds much. The later seasons matter more.`;
+
+            const chase = [];
+            if (path.above) {
+                const gap = path.above.points - path.team.points;
+                chase.push(`<li><strong>${pts(gap)}</strong> dynasty points behind ${escapeHTML(path.above.teamName)} (#${path.rank - 1}), ${winsWorth(gap)}.</li>`);
+            }
+            if (path.leader && path.leader !== path.above) {
+                const gap = path.leader.points - path.team.points;
+                chase.push(`<li><strong>${pts(gap)}</strong> behind the leader, ${escapeHTML(path.leader.teamName)}, ${winsWorth(gap)}.</li>`);
+            }
+            if (path.below) {
+                const gap = path.team.points - path.below.points;
+                chase.push(`<li><strong>${pts(gap)}</strong> ahead of ${escapeHTML(path.below.teamName)} (#${path.rank + 1}).</li>`);
+            }
+
+            el.innerHTML = `
+                <div class="war-header">
+                    <h2 class="section-title">Path to the Pot</h2>
+                    <label class="war-picker">Path for
+                        <select onchange="renderPathToPot(this.value)">${raceTeamOptions(pathTeam)}</select>
+                    </label>
+                </div>
+                <p class="path-headline">${headline}</p>
+                <div class="race-facts">
+                    <div><span class="race-fact-value">${formatOdds(path.nowPct)}</span><span class="race-fact-label">Pot odds today (#${path.rank} in points)</span></div>
+                    <div><span class="race-fact-value">${Math.round(path.playoffShare)}%</span><span class="race-fact-label">Chance to make the ${season} playoffs</span></div>
+                    <div><span class="race-fact-value">${path.made !== null ? formatOdds(path.made) : '–'}</span><span class="race-fact-label">Pot odds if ${you ? 'you make' : 'they make'} the ${season} playoffs${path.missed !== null ? ` (${formatOdds(path.missed)} if not)` : ''}</span></div>
+                    <div><span class="race-fact-value">${path.title !== null && path.titleShare * path.worlds / 100 >= 20 ? formatOdds(path.title) : '–'}</span><span class="race-fact-label">Pot odds with the ${season} title</span></div>
+                </div>
+                ${gamesLeft ? `
+                    <h3 class="path-subhead">Rest of ${season}: ${gamesLeft} game${gamesLeft === 1 ? '' : 's'} left</h3>
+                    <ol class="odds-list path-list">
+                        ${shown.map(r => `
+                            <li class="odds-row path-row ${r === likely ? 'is-likely' : ''} ${r.rare ? 'is-rare' : ''} ${r === hold ? 'is-hold' : ''}">
+                                <span class="path-label"><strong>Win ${r.wins} of ${gamesLeft}</strong><small>${r === likely ? 'most likely · ' : ''}${r.share >= 1 ? Math.round(r.share) : '<1'}% of simulations</small></span>
+                                <span class="odds-track"><span class="odds-bar" style="width: ${r.rare ? 0 : Math.min(100, r.pct / maxPct * 100).toFixed(1)}%"></span></span>
+                                <span class="odds-value"><strong>${r.rare ? 'rare' : formatOdds(r.pct)}</strong></span>
+                            </li>
+                        `).join('')}
+                    </ol>
+                ` : ''}
+                ${chase.length ? `<h3 class="path-subhead">The chase</h3><ul class="path-chase">${chase.join('')}</ul>` : ''}
+                <div class="share-row">${shareButton('path', pathTeam)}</div>
+                <p class="race-footnote">From the same ${path.worlds.toLocaleString()} simulations as Pot Odds. Each row is the pot odds across the worlds where ${you ? 'you' : 'this team'} finished ${season} with that many more wins. "Rare" means it happened too few times to trust the number. Each regular-season win is worth ${SCORING.regularSeasonWin} dynasty points.</p>
+            `;
+        }
+
+        // ==================== SLIDING DOORS ====================
+        //
+        // Every regular-season week of this pot cycle, replayed with the best lineup each team could have started.
+        // A loss that the best lineup would have won is a "sliding door".
+
+        let doorsData = null;
+        let doorsTeam = null;
+        const doorsOddsCache = {};
+
+        async function loadSlidingDoors() {
+            const el = document.getElementById('doorsSection');
+            if (!el) return;
+            Object.keys(doorsOddsCache).forEach(key => delete doorsOddsCache[key]); // standings may have changed
+            try {
+                const players = await getSleeperPlayers();
+                doorsData = buildSlidingDoors(players);
+                renderSlidingDoors();
+            } catch (error) {
+                console.error('Sliding Doors error:', error);
+                el.innerHTML = '<h2 class="section-title">Sliding Doors</h2><div class="error">Couldn’t load lineups. Refresh to try again.</div>';
+            }
+        }
+
+        function buildSlidingDoors(players) {
+            const nameOf = pid => { const p = players[pid]; return p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() || pid : pid; };
+            const posOf = pid => players[pid]?.position || (isNaN(pid) ? 'DEF' : '?');
+            const teams = {};
+            const team = id => (teams[id] = teams[id] || { record: [0, 0, 0], perfect: [0, 0, 0], bench: 0, weeks: 0, doors: [], gifts: [], highScores: 0 });
+            const entries = leagueArchive.filter(e => !currentCycle || (e.season >= currentCycle.start && e.season <= currentCycle.end));
+            const finalSeason = entries[entries.length - 1]?.season;
+
+            entries.forEach(entry => {
+                const slots = (entry.league.roster_positions || []).filter(x => !['BN', 'IR', 'TAXI'].includes(x));
+                const owner = {};
+                entry.rosters.forEach(r => { owner[r.roster_id] = r.owner_id; });
+                entry.matchups.forEach(({ week, matchups }) => {
+                    if (week >= entry.playoffWeekStart || week > entry.lastFinishedWeek || !matchups?.length) return;
+                    if (Math.max(...matchups.map(m => m.points || 0)) === 0) return;
+                    const topScore = Math.max(...matchups.map(m => m.points || 0));
+
+                    // Best possible score for each roster this week, plus the single swap that gains the most
+                    const replay = {};
+                    matchups.forEach(m => {
+                        const actual = m.points || 0;
+                        if (!m.players_points) { replay[m.roster_id] = { actual, best: actual, swap: null }; return; }
+                        const pool = Object.entries(m.players_points).map(([pid, pts]) => ({ id: pid, position: posOf(pid), pts: pts || 0 }));
+                        const best = Math.max(actual, bestLineup(pool, slots, 'pts').total);
+                        const starters = m.starters || [];
+                        const bench = pool.filter(x => !starters.includes(x.id));
+                        let swap = null;
+                        starters.forEach((pid, i) => {
+                            const ok = SLOT_ELIGIBLE[slots[i]];
+                            if (!ok) return;
+                            const outPts = pid && pid !== '0' ? (m.players_points[pid] || 0) : 0;
+                            bench.forEach(b => {
+                                if (!ok.includes(b.position)) return;
+                                const gain = b.pts - outPts;
+                                if (gain > 0 && (!swap || gain > swap.gain)) swap = { gain, inName: nameOf(b.id), inPts: b.pts, outName: pid && pid !== '0' ? nameOf(pid) : 'an empty slot', outPts };
+                            });
+                        });
+                        replay[m.roster_id] = { actual, best, swap };
+                    });
+
+                    const pairs = {};
+                    matchups.forEach(m => { if (m.matchup_id != null) (pairs[m.matchup_id] = pairs[m.matchup_id] || []).push(m); });
+                    Object.values(pairs).forEach(pair => {
+                        if (pair.length !== 2) return;
+                        pair.forEach((m, i) => {
+                            const id = owner[m.roster_id], oppId = owner[pair[1 - i].roster_id];
+                            if (!id) return;
+                            const me = replay[m.roster_id], opp = replay[pair[1 - i].roster_id];
+                            const t = team(id);
+                            const result = (a, b) => (a > b ? 0 : a < b ? 1 : 2);
+                            t.record[result(me.actual, opp.actual)]++;
+                            t.perfect[result(me.best, opp.actual)]++;
+                            t.bench += me.best - me.actual;
+                            t.weeks++;
+                            const game = {
+                                season: entry.season, week, oppId, actual: me.actual, opp: opp.actual, best: me.best,
+                                needed: opp.actual - me.actual, swap: me.swap,
+                                singleSwap: !!me.swap && me.actual + me.swap.gain > opp.actual,
+                                current: entry.season === finalSeason && entry.league.status !== 'complete',
+                                highScore: me.actual < topScore && me.best > topScore
+                            };
+                            if (me.actual < opp.actual && me.best > opp.actual) t.doors.push(game);
+                            if (me.actual > opp.actual && opp.best > me.actual) t.gifts.push({ ...game, oppBest: opp.best });
+                            if (game.highScore) t.highScores++;
+                        });
+                    });
+                });
+            });
+            return { teams, seasons: entries.map(e => e.season) };
+        }
+
+        // Pot odds if every sliding door had swung the team's way (opponents lose those wins)
+        async function doorsPotOdds(userId) {
+            if (doorsOddsCache[userId] !== undefined) return doorsOddsCache[userId];
+            const t = doorsData?.teams?.[userId];
+            if (!potOddsCache || !t || !t.doors.length) return (doorsOddsCache[userId] = null);
+            const bonus = {};
+            const add = (id, points, wins) => { bonus[id] = bonus[id] || { points: 0, wins: 0 }; bonus[id].points += points; bonus[id].wins += wins; };
+            t.doors.forEach(d => {
+                add(userId, SCORING.regularSeasonWin, d.current ? 1 : 0);
+                add(d.oppId, -SCORING.regularSeasonWin, d.current ? -1 : 0);
+            });
+            if (t.highScores) add(userId, t.highScores * SCORING.highestWeeklyScore, 0);
+            await new Promise(resolve => setTimeout(resolve, 0)); // let the section paint first
+            const worlds = worldsFor(lastLeaderboard.length);
+            const base = computePotOdds(leagueArchive, lastSeasonMeta, lastLeaderboard, { worlds, lastWeek: false });
+            const replayed = computePotOdds(leagueArchive, lastSeasonMeta, lastLeaderboard, { worlds, lastWeek: false, bonus });
+            if (!base || !replayed) return (doorsOddsCache[userId] = null);
+            // Same random worlds for both runs, so the difference is the lineups, not luck of the draw
+            const now = potOddsCache.now[userId] || 0;
+            return (doorsOddsCache[userId] = { now, replayed: Math.min(100, Math.max(0, now + replayed.now[userId] - base.now[userId])), points: bonus[userId]?.points || 0 });
+        }
+
+        function recordText([w, l, tie]) {
+            return `${w}–${l}${tie ? `–${tie}` : ''}`;
+        }
+
+        function doorLine(d) {
+            const opp = escapeHTML(teamInfo(d.oppId).name);
+            const fix = d.singleSwap
+                ? `Starting <strong>${escapeHTML(d.swap.inName)}</strong> (${d.swap.inPts.toFixed(1)}) over ${escapeHTML(d.swap.outName)} (${d.swap.outPts.toFixed(1)}) wins it.`
+                : `It took more than one change: the best lineup scored ${d.best.toFixed(1)}.`;
+            return { opp, fix };
+        }
+
+        function renderSlidingDoors(userId) {
+            const el = document.getElementById('doorsSection');
+            if (!el || !doorsData) return;
+            if (userId) doorsTeam = userId;
+            if (!lastLeaderboard.some(t => t.userId === doorsTeam)) doorsTeam = defaultRaceTeam();
+            const me = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}').user_id;
+            const you = doorsTeam === me;
+            const t = doorsData.teams[doorsTeam];
+            const seasonsText = doorsData.seasons.length > 1 ? `${doorsData.seasons[0]}–${doorsData.seasons[doorsData.seasons.length - 1]}` : `${doorsData.seasons[0] || ''}`;
+
+            const league = lastLeaderboard.map(e => ({ e, t: doorsData.teams[e.userId] })).filter(x => x.t && x.t.weeks)
+                .sort((a, b) => a.t.bench / a.t.weeks - b.t.bench / b.t.weeks);
+            const leagueRows = league.map(({ e, t: lt }, i) => `
+                <tr class="${e.userId === me ? 'is-you' : ''}">
+                    <td data-label="Coach">${i + 1}. <span class="team-label">${avatarImg(e.avatar)}<span class="team-name">${escapeHTML(e.teamName)}</span></span></td>
+                    <td data-label="Record">${recordText(lt.record)}</td>
+                    <td data-label="Perfect lineups">${recordText(lt.perfect)}</td>
+                    <td data-label="Wins left on bench">${lt.doors.length}</td>
+                    <td data-label="Gifts from opponents">${lt.gifts.length}</td>
+                    <td data-label="Bench pts / week">${(lt.bench / lt.weeks).toFixed(1)}</td>
+                </tr>
+            `).join('');
+
+            let detail;
+            if (!t || !t.weeks) {
+                detail = '<p class="section-note">No regular-season games yet.</p>';
+            } else {
+                const doors = [...t.doors].sort((a, b) => b.season - a.season || b.week - a.week);
+                detail = `
+                    <div class="race-facts">
+                        <div><span class="race-fact-value">${recordText(t.record)}</span><span class="race-fact-label">Actual record</span></div>
+                        <div><span class="race-fact-value">${recordText(t.perfect)}</span><span class="race-fact-label">With perfect lineups</span></div>
+                        <div><span class="race-fact-value">${(t.bench / t.weeks).toFixed(1)}</span><span class="race-fact-label">Points left on the bench per week</span></div>
+                        <div id="doorsOdds"><span class="race-fact-value">${doors.length ? '…' : formatOdds(potOddsCache?.now?.[doorsTeam] || 0)}</span><span class="race-fact-label">${doors.length ? 'Pot odds with perfect lineups' : 'Pot odds (nothing to replay)'}</span></div>
+                    </div>
+                    ${doors.length ? `
+                        <h3 class="path-subhead">${doors.length} win${doors.length === 1 ? '' : 's'} left on the bench</h3>
+                        <ol class="doors-list">
+                            ${doors.map(d => {
+                                const { opp, fix } = doorLine(d);
+                                return `
+                                    <li class="door">
+                                        <span class="door-when">${doorsData.seasons.length > 1 ? `${d.season} · ` : ''}Week ${d.week}</span>
+                                        <span class="door-game">Lost to ${opp}, ${d.actual.toFixed(1)}–${d.opp.toFixed(1)}</span>
+                                        <span class="door-fix">${fix}${d.highScore ? ' That lineup would have been the week’s high score, too.' : ''}</span>
+                                    </li>
+                                `;
+                            }).join('')}
+                        </ol>
+                    ` : `<p class="path-headline">${you ? 'You haven’t' : 'This team hasn’t'} lost a game ${you ? 'your' : 'its'} bench could have won. Clean.</p>`}
+                    ${t.gifts.length ? `<p class="section-note doors-gifts">${t.gifts.length} win${t.gifts.length === 1 ? '' : 's'} came from opponents who left enough on their bench to beat ${you ? 'you' : 'them'}: ${t.gifts.map(g => `${doorsData.seasons.length > 1 ? `${g.season} ` : ''}week ${g.week} vs ${escapeHTML(teamInfo(g.oppId).name)}`).join(', ')}.</p>` : ''}
+                    <div class="share-row">${shareButton('doors', doorsTeam)}</div>
+                `;
+            }
+
+            el.innerHTML = `
+                <div class="war-header">
+                    <h2 class="section-title">Sliding Doors</h2>
+                    <label class="war-picker">Replay
+                        <select onchange="renderSlidingDoors(this.value)">${raceTeamOptions(doorsTeam)}</select>
+                    </label>
+                </div>
+                <p class="section-note">Every regular-season week of this pot (${seasonsText}), replayed with the best lineup each team could have started from its own roster.</p>
+                ${detail}
+                <h3 class="path-subhead">Lineup coaches</h3>
+                <table class="stats-table doors-table">
+                    <thead><tr><th>Coach</th><th>Record</th><th>Perfect lineups</th><th>Wins left on bench</th><th>Gifts from opponents</th><th>Bench pts / week</th></tr></thead>
+                    <tbody>${leagueRows}</tbody>
+                </table>
+                <p class="race-footnote">Opponents keep the lineups they actually started. "Gifts from opponents" are wins that came only because the other team left enough points on its bench. Pot odds with perfect lineups give ${you ? 'you' : 'this team'} ${SCORING.regularSeasonWin} dynasty points for each flipped game (and ${SCORING.highestWeeklyScore} for any weekly high score the best lineup would have taken), take those wins from the opponents, and rerun the simulation.</p>
+            `;
+
+            if (t?.doors.length) {
+                const team = doorsTeam;
+                doorsPotOdds(team).then(result => {
+                    const box = document.getElementById('doorsOdds');
+                    if (!box || doorsTeam !== team) return;
+                    box.querySelector('.race-fact-value').innerHTML = result ? `${formatOdds(result.replayed)} <span class="odds-change up">vs ${formatOdds(result.now)}</span>` : '–';
+                    if (result) box.querySelector('.race-fact-label').textContent = `Pot odds with perfect lineups (+${result.points} dynasty points)`;
+                });
+            }
         }
 
         // ==================== ROSTER VIEW ====================
@@ -9949,7 +10428,7 @@
         async function cardFonts() {
             await Promise.all([
                 `800 76px ${CARD.display}`, `700 34px ${CARD.display}`, `500 28px ${CARD.body}`, `700 28px ${CARD.body}`, `48px ${CARD.brush}`
-            ].map(font => document.fonts.load(font, '武士道将軍覇討商 Ag 0123')).concat(document.fonts.ready)).catch(() => {});
+            ].map(font => document.fonts.load(font, '武士道将軍覇討商門 Ag 0123')).concat(document.fonts.ready)).catch(() => {});
         }
         
         function roundRectPath(ctx, x, y, w, h, r) {
@@ -10275,6 +10754,41 @@
                     }) }]
                 };
             }
+            if (type === 'path') {
+                const path = pathToPot(arg);
+                if (!path) return null;
+                const rows = path.rows.filter(r => r.pct !== null && !r.rare);
+                return {
+                    eyebrow: `Path to the Pot · ${path.season}`, title: path.team.teamName, stamp: '道',
+                    blocks: [
+                        { type: 'lines', lines: [
+                            { text: `Pot odds today: ${formatOdds(path.nowPct)} · #${path.rank} in dynasty points`, bold: true },
+                            ...(path.hold && path.gamesLeft && path.hold.wins > 0 ? [{ text: `Win ${path.hold.wins} of the last ${path.gamesLeft} to hold those odds.`, color: CARD.shu }] : [])
+                        ] },
+                        ...(path.gamesLeft ? [{ type: 'rows', rowHeight: 62, rows: rows.map(r => ({ name: `Win ${r.wins} of ${path.gamesLeft}${r === path.likely ? '  · most likely' : ''}`, right: formatOdds(r.pct), highlight: r === path.hold })) }] : []),
+                        { type: 'lines', lines: [{ text: `Pot odds if they make the ${path.season} playoffs: ${path.made !== null ? formatOdds(path.made) : '–'} · if not: ${path.missed !== null ? formatOdds(path.missed) : '–'}`, color: CARD.soft }] }
+                    ]
+                };
+            }
+            if (type === 'doors' && doorsData) {
+                const t = doorsData.teams[arg];
+                if (!t) return null;
+                const odds = doorsOddsCache[arg];
+                const doors = [...t.doors].sort((a, b) => b.season - a.season || b.week - a.week);
+                const plain = html => html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+                return {
+                    eyebrow: 'Sliding Doors', title: teamInfo(arg).name, stamp: '門',
+                    blocks: [
+                        { type: 'lines', lines: [
+                            { text: `${recordText(t.record)} → ${recordText(t.perfect)} with perfect lineups`, bold: true },
+                            { text: `${(t.bench / t.weeks).toFixed(1)} points left on the bench per week${odds ? ` · pot odds ${formatOdds(odds.now)} → ${formatOdds(odds.replayed)}` : ''}`, color: CARD.soft }
+                        ] },
+                        doors.length
+                            ? { type: 'rows', rowHeight: 92, rows: doors.map(d => ({ name: `${doorsData.seasons.length > 1 ? `${d.season} ` : ''}Wk ${d.week}: lost to ${teamInfo(d.oppId).name}`, sub: plain(doorLine(d).fix), right: 'L→W', rightColor: CARD.shu })) }
+                            : { type: 'lines', lines: [{ text: 'No games lost on the bench. Clean.', color: CARD.matsu }] }
+                    ]
+                };
+            }
             if (type === 'recap' && lastRecapText) {
                 const entry = leagueArchive[leagueArchive.length - 1];
                 return { eyebrow: `Week ${entry?.lastFinishedWeek || ''} recap`, title: "Mike's Take", stamp: '語', blocks: [{ type: 'text', text: lastRecapText, size: 32 }] };
@@ -10485,6 +10999,8 @@
             [/^Dynasty Leaderboard$/, 'Leaderboard'],
             [/^The Road to/, 'Overview'],
             [/^Pot Odds$/, 'Pot Odds'],
+            [/^Path to the Pot$/, 'Path to the Pot'],
+            [/^Sliding Doors$/, 'Sliding Doors'],
             [/^The Race$/, 'The Race'],
             [/^Standings by Season$/, 'Standings'],
             [/^Position Grades$/, 'Scouting Report'],
