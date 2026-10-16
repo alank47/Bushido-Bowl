@@ -2204,6 +2204,89 @@
             }
         }
 
+        /* ---------- Shareable scroll cards ---------- */
+        .share-row {
+            display: flex;
+            justify-content: flex-end;
+            margin: 10px 0 4px;
+        }
+
+        .share-btn {
+            width: auto;
+            min-height: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: transparent;
+            border: 1px solid var(--shu);
+            color: var(--shu);
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: none;
+            box-shadow: none;
+            white-space: nowrap;
+        }
+
+        .share-btn:hover {
+            background: var(--shu);
+            color: var(--card);
+            transform: none;
+        }
+
+        .honor-feed .share-btn {
+            margin-left: auto;
+        }
+
+        .share-dialog {
+            width: min(520px, calc(100vw - 32px));
+        }
+
+        .share-preview {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 240px;
+            padding: 12px;
+            background: var(--washi-deep);
+            border-radius: 4px;
+        }
+
+        .share-preview img {
+            max-width: 100%;
+            max-height: 58vh;
+            box-shadow: 0 10px 30px -12px rgba(29, 26, 23, 0.5);
+        }
+
+        .share-preview img:not([src]) {
+            display: none;
+        }
+
+        .share-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .share-actions button {
+            flex: 1;
+            padding: 12px;
+        }
+
+        .share-actions .secondary-action {
+            background: transparent;
+            border: 1px solid var(--sumi);
+            color: var(--sumi);
+            box-shadow: none;
+        }
+
+        .share-actions .secondary-action:hover {
+            background: var(--sumi);
+            color: var(--card);
+        }
+
         /* ---------- Ranks and badges ---------- */
         .seal {
             position: relative;
@@ -4037,6 +4120,25 @@
         </div>
     </dialog>
 
+    <!-- Share a scroll card -->
+    <dialog id="shareDialog" class="roster-dialog share-dialog" aria-labelledby="shareTitle">
+        <div class="roster-dialog-inner">
+            <button type="button" class="roster-close" onclick="closeShare()" aria-label="Close">✕</button>
+            <h2 id="shareTitle" class="roster-title">Share card</h2>
+            <nav class="subtabs share-size" aria-label="Card size">
+                <button type="button" class="subtab-btn active" data-size="portrait" onclick="setShareSize('portrait')">Portrait</button>
+                <button type="button" class="subtab-btn" data-size="square" onclick="setShareSize('square')">Square</button>
+            </nav>
+            <div class="share-preview"><img id="sharePreview" alt="Preview of the card"></div>
+            <p id="shareStatus" class="section-note" role="status"></p>
+            <div class="share-actions">
+                <button type="button" onclick="shareNow()">Share</button>
+                <button type="button" class="secondary-action" onclick="downloadShare()">Download</button>
+                <button type="button" class="secondary-action" onclick="copyShare()">Copy</button>
+            </div>
+        </div>
+    </dialog>
+
     <!-- Value Changes buddy: pops up when someone opens Value Changes -->
     <div class="value-buddy" id="valueBuddy" hidden>
         <div class="buddy-bubble" role="status" aria-live="polite">
@@ -5683,6 +5785,7 @@
             document.getElementById('liveContent').innerHTML = `
                 ${highScoreRace}
                 <div class="matchup-grid">${cards || '<p class="section-note">No matchups this week.</p>'}</div>
+                ${cards ? `<div class="share-row">${shareButton('week', '', 'Share this week')}</div>` : ''}
                 <p class="race-footnote">Scores update every minute while this page is open. Tap a matchup to see both lineups.</p>
             `;
             
@@ -5716,6 +5819,7 @@
             const pts = (m, i) => (m.starters_points?.[i] ?? 0).toFixed(1);
             
             container.innerHTML = `
+                <div class="share-row">${shareButton('matchup', details.dataset.matchupId, 'Share matchup')}</div>
                 <div class="lineup-grid">
                     ${slots.map((slot, i) => `
                         <span class="lineup-player">${name(a.starters?.[i])}</span>
@@ -6701,6 +6805,7 @@
                     <span class="fairness-verdict fairness-${verdict.tone}">${verdict.label}</span>
                     <span>${verdict.detail}</span>
                     <span class="tm-actions">
+                        ${shareButton('tradeMachine')}
                         <button type="button" class="live-refresh" onclick="tradeMachineTake()">Mike's take</button>
                         <button type="button" class="live-refresh" onclick="tradeMachineReset()">Clear</button>
                     </span>
@@ -7090,8 +7195,10 @@
         }
         
         function showRecap(text) {
+            lastRecapText = text;
             document.getElementById('recapContent').innerHTML = `
                 <div class="recap-text">${escapeHTML(text)}</div>
+                <div class="share-row">${shareButton('recap')}</div>
                 <p class="race-footnote">Written by AI in the voice of Mike, from this week's results and the pot odds.</p>
             `;
         }
@@ -7151,6 +7258,7 @@
             [...ids].sort((a, b) => nowStats[b].pf / (nowStats[b].games || 1) - nowStats[a].pf / (nowStats[a].games || 1)).forEach((id, i) => { ppgRank[id] = i + 1; });
             const currentUser = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}');
             
+            lastPowerCard = { week: lastWeek, rows: [] };
             const rows = [...ids].sort((a, b) => now[a] - now[b]).map(id => {
                 const st = nowStats[id];
                 const team = teamInfo(id);
@@ -7160,6 +7268,7 @@
                 for (let i = st.results.length - 1; i >= 0 && st.results[i].r === st.results[st.results.length - 1].r; i--) streak++;
                 const streakText = st.results.length && streak >= 2 ? ` · ${st.results[st.results.length - 1].r}${streak} streak` : '';
                 const lastText = last ? ` · ${last.r === 'W' ? 'Beat' : last.r === 'L' ? 'Lost to' : 'Tied'} ${escapeHTML(teamInfo(last.opp).name)}${last.r === 'T' ? '' : ` by ${Math.abs(last.margin).toFixed(1)}`}` : '';
+                lastPowerCard.rows.push({ rank: now[id], move: before ? move : null, userId: id, blurb: `${st.w}–${st.l}${st.t ? `–${st.t}` : ''} · ${(st.pf / (st.games || 1)).toFixed(1)} ppg${last ? ` · ${last.r === 'W' ? 'beat' : last.r === 'L' ? 'lost to' : 'tied'} ${teamInfo(last.opp).name}` : ''}${streakText.replace(' · ', ' · ')}` });
                 return `
                     <li class="power-row ${id === currentUser.user_id ? 'is-you' : ''}">
                         <span class="power-rank">${now[id]}</span>
@@ -7176,6 +7285,7 @@
             document.getElementById('powerTitle').textContent = `Week ${lastWeek} Power Rankings`;
             document.getElementById('powerContent').innerHTML = `
                 <ol class="power-list">${rows}</ol>
+                <div class="share-row">${shareButton('power')}</div>
                 <p class="race-footnote">Blends this season's record and points per game with each team's strength across seasons${potOddsCache ? ' and its pot odds' : ''}. Arrows show movement since last week.</p>
             `;
             section.hidden = false;
@@ -7313,7 +7423,8 @@
                     </div>
                 `;
             };
-            const cards = biggest.map(t => {
+            lastReportTrades = biggest;
+            const cards = biggest.map((t, index) => {
                 const w = t.winner;
                 const valueLeader = [...t.sides].sort((a, b) => b.netValue - a.netValue)[0];
                 const valueNote = valueLeader.userId !== w.userId && valueLeader.netValue > 300
@@ -7324,6 +7435,7 @@
                         <span class="trade-date">${t.season} · week ${t.week}</span>
                         <div class="report-sides">${t.sides.map(sideHtml).join('')}</div>
                         <p class="report-verdict"><strong>${escapeHTML(teamInfo(w.userId).name)}</strong> is winning by ${w.netPoints.toFixed(1)} starting points.${valueNote}</p>
+                        <div class="share-row">${shareButton('report', index)}</div>
                     </li>
                 `;
             }).join('');
@@ -7794,6 +7906,7 @@
                             `;
                         }).join('')}
                     </ol>
+                    <div class="share-row">${shareButton('odds')}</div>
                     <p class="race-footnote">Built from this league's real scores: team strength is estimated from every regular-season week so far, rosters carry most of their strength into the next season, and each week's scores vary as much as they really do. It's a forecast, not a guarantee.</p>
                 </div>
             `;
@@ -8123,6 +8236,9 @@
         // Clicking the dimmed backdrop closes the roster
         document.getElementById('rosterDialog').addEventListener('click', event => {
             if (event.target.id === 'rosterDialog') closeRoster();
+        });
+        document.getElementById('shareDialog').addEventListener('click', event => {
+            if (event.target.id === 'shareDialog') closeShare();
         });
 
         // ==================== TRADE TRACKER FUNCTIONS ====================
@@ -9624,7 +9740,7 @@
             document.getElementById('honorsContent').innerHTML = `<ul class="honor-feed">${fresh.map(({ u, b }) => {
                 const badge = BADGE_BY_KEY[b.key];
                 const team = teamInfo(u.userId);
-                return `<li>${seal(badge, 'small')}<span><strong>${escapeHTML(team.name)}</strong> earned <strong>${escapeHTML(badge.name)}</strong>${b.detail ? ` · ${escapeHTML(b.detail)}` : ''}</span></li>`;
+                return `<li>${seal(badge, 'small')}<span><strong>${escapeHTML(team.name)}</strong> earned <strong>${escapeHTML(badge.name)}</strong>${b.detail ? ` · ${escapeHTML(b.detail)}` : ''}</span>${shareButton('honor', `${u.userId}|${b.key}|${b.season}|${b.week}`)}</li>`;
             }).join('')}</ul>`;
             section.hidden = false;
         }
@@ -9646,6 +9762,7 @@
                 </div>
             `).join('');
             return `
+                <div class="share-row">${shareButton('rank', userId, 'Share rank')}</div>
                 <div class="profile-rank">
                     <span class="rank-seal">${u.rank.kanji}</span>
                     <div class="profile-rank-info">
@@ -9723,6 +9840,7 @@
                 <div class="badge-card-holders">${holders.length
                     ? holders.map(u => `<span class="team-label">${avatarImg(teamInfo(u.userId).avatar)}<span>${escapeHTML(teamInfo(u.userId).name)}${u.badgeCounts[badge.key] > 1 ? ` ×${u.badgeCounts[badge.key]}` : ''}</span></span>`).join('')
                     : '<em>Nobody has earned this yet.</em>'}</div>
+                <div class="share-row">${shareButton('badge', badge.key)}</div>
             `;
             // Inside the team panel the card must live in the dialog, or the dialog would cover it
             (sealEl.closest('dialog') || document.body).appendChild(card);
@@ -9777,6 +9895,531 @@
                     `).join('')}</ul>
                 </div>
             `;
+        }
+
+        // ==================== SHAREABLE SCROLL CARDS ====================
+        //
+        // Cards are drawn in the browser on a canvas (1080 x 1350 portrait or 1080 x 1080 square) in the site's
+        // style, then shared through the phone's share sheet, downloaded or copied. Nothing is uploaded anywhere.
+        
+        const CARD = {
+            washi: '#f3ebda', paper: '#fbf7ee', sumi: '#1d1a17', soft: '#6a5f52', shu: '#b3362b', shuDeep: '#8f2a21',
+            kin: '#c9a24f', kinText: '#85621d', ai: '#2d3e5c', matsu: '#3d6b4c', line: '#d8cab0',
+            display: '"Shippori Mincho B1", Georgia, serif', body: '"Zen Kaku Gothic New", system-ui, sans-serif', brush: '"Yuji Syuku", "Shippori Mincho B1", serif'
+        };
+        let shareState = null;      // { spec, size, blob }
+        let lastPowerCard = null;
+        let lastReportTrades = [];
+        let lastRecapText = '';
+        const cardImageCache = {};
+        
+        function cardImage(url) {
+            if (!url) return Promise.resolve(null);
+            if (!cardImageCache[url]) {
+                cardImageCache[url] = new Promise(resolve => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null);
+                    // Separate URL so the browser doesn't reuse the non-CORS copy the page already cached
+                    img.src = url + (url.includes('?') ? '&' : '?') + 'card=1';
+                });
+            }
+            return cardImageCache[url];
+        }
+        
+        async function cardFonts() {
+            await Promise.all([
+                `800 76px ${CARD.display}`, `700 34px ${CARD.display}`, `500 28px ${CARD.body}`, `700 28px ${CARD.body}`, `48px ${CARD.brush}`
+            ].map(font => document.fonts.load(font, '武士道将軍覇討商 Ag 0123')).concat(document.fonts.ready)).catch(() => {});
+        }
+        
+        function roundRectPath(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r);
+            ctx.arcTo(x, y, x + w, y, r);
+            ctx.closePath();
+        }
+        
+        function fitText(ctx, text, maxWidth) {
+            if (ctx.measureText(text).width <= maxWidth) return text;
+            let t = text;
+            while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+            return t + '…';
+        }
+        
+        function wrapLines(ctx, text, maxWidth) {
+            const lines = [];
+            String(text).split('\n').forEach(paragraph => {
+                let line = '';
+                paragraph.split(/\s+/).forEach(word => {
+                    const test = line ? `${line} ${word}` : word;
+                    if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; }
+                    else line = test;
+                });
+                lines.push(line);
+            });
+            return lines;
+        }
+        
+        // Washi paper, ink-wash mountains, red sun, gold mist, seigaiha band, rods, seal and footer
+        function drawCardFrame(ctx, W, H, stampKanji) {
+            ctx.fillStyle = CARD.washi;
+            ctx.fillRect(0, 0, W, H);
+            // a little paper grain
+            for (let i = 0; i < 1800; i++) {
+                ctx.fillStyle = `rgba(110, 90, 60, ${Math.random() * 0.05})`;
+                ctx.fillRect(Math.random() * W, Math.random() * H, 2, 2);
+            }
+            const headerBottom = 300;
+            // sun
+            ctx.fillStyle = CARD.shu;
+            ctx.beginPath(); ctx.arc(W - 175, 128, 82, 0, Math.PI * 2); ctx.fill();
+            // gold mist bands
+            ctx.fillStyle = 'rgba(214, 178, 96, 0.55)';
+            roundRectPath(ctx, -40, 150, 520, 30, 15); ctx.fill();
+            roundRectPath(ctx, W * 0.46, 196, 620, 26, 13); ctx.fill();
+            // mountains: far wash, near peak, snow
+            ctx.fillStyle = 'rgba(29, 26, 23, 0.12)';
+            ctx.beginPath(); ctx.moveTo(0, headerBottom);
+            [[0, 238], [150, 214], [300, 236], [460, 200], [640, 230], [820, 206], [1000, 228], [W, 218], [W, headerBottom]].forEach(([x, y]) => ctx.lineTo(x, y));
+            ctx.fill();
+            ctx.fillStyle = 'rgba(29, 26, 23, 0.3)';
+            ctx.beginPath(); ctx.moveTo(0, headerBottom);
+            [[0, 282], [260, 262], [440, 236], [510, 196], [540, 180], [570, 196], [640, 236], [820, 262], [W, 282], [W, headerBottom]].forEach(([x, y]) => ctx.lineTo(x, y));
+            ctx.fill();
+            ctx.fillStyle = 'rgba(251, 247, 238, 0.9)';
+            ctx.beginPath(); [[518, 192], [540, 180], [562, 192], [552, 190], [544, 196], [536, 189], [528, 197]].forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.fill();
+            // seigaiha band
+            const bandY = headerBottom, bandH = 38;
+            ctx.save();
+            ctx.beginPath(); ctx.rect(0, bandY, W, bandH); ctx.clip();
+            ctx.fillStyle = CARD.ai; ctx.fillRect(0, bandY, W, bandH);
+            ctx.strokeStyle = 'rgba(243, 235, 218, 0.45)'; ctx.lineWidth = 2;
+            [[0, bandY + bandH * 0.55], [24, bandY + bandH + 2]].forEach(([offset, cy]) => {
+                for (let x = -48 + offset; x < W + 48; x += 48) {
+                    [22, 15, 8].forEach(r => { ctx.fillStyle = CARD.ai; ctx.beginPath(); ctx.arc(x, cy, r, Math.PI, 0); ctx.fill(); ctx.stroke(); });
+                }
+            });
+            ctx.restore();
+            // rods
+            ctx.fillStyle = CARD.sumi;
+            ctx.fillRect(0, 0, W, 22);
+            ctx.fillRect(0, H - 22, W, 22);
+            // vertical bushido seal
+            ctx.fillStyle = CARD.shu;
+            roundRectPath(ctx, 64, 48, 74, 196, 8); ctx.fill();
+            ctx.strokeStyle = 'rgba(251, 247, 238, 0.6)'; ctx.lineWidth = 2;
+            roundRectPath(ctx, 70, 54, 62, 184, 6); ctx.stroke();
+            ctx.fillStyle = CARD.paper; ctx.font = `46px ${CARD.brush}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ['武', '士', '道'].forEach((ch, i) => ctx.fillText(ch, 101, 92 + i * 58));
+            // footer
+            ctx.strokeStyle = CARD.line; ctx.lineWidth = 2; ctx.setLineDash([8, 8]);
+            ctx.beginPath(); ctx.moveTo(70, H - 112); ctx.lineTo(W - 70, H - 112); ctx.stroke(); ctx.setLineDash([]);
+            ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = CARD.soft; ctx.font = `700 30px ${CARD.body}`;
+            ctx.fillText('bushidobowl.org', 70, H - 66);
+            ctx.fillStyle = CARD.shu;
+            roundRectPath(ctx, W - 140, H - 102, 70, 70, 8); ctx.fill();
+            ctx.fillStyle = CARD.paper; ctx.font = `42px ${CARD.brush}`; ctx.textAlign = 'center';
+            ctx.fillText(stampKanji || '侍', W - 105, H - 66);
+            return { top: bandY + bandH + 44, bottom: H - 136, left: 70, right: W - 70 };
+        }
+        
+        async function drawAvatar(ctx, url, x, y, size, ring = CARD.line) {
+            const img = await cardImage(url);
+            ctx.save();
+            ctx.beginPath(); ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2); ctx.closePath();
+            ctx.fillStyle = CARD.ai; ctx.fill();
+            if (img) { ctx.clip(); ctx.drawImage(img, x, y, size, size); }
+            ctx.restore();
+            ctx.strokeStyle = ring; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2); ctx.stroke();
+        }
+        
+        function drawSeal(ctx, kanji, tier, cx, cy, size) {
+            const rim = { common: CARD.sumi, rare: '#a9a7a0', legendary: CARD.kin, shame: CARD.soft }[tier] || CARD.sumi;
+            ctx.fillStyle = tier === 'shame' ? '#8c7f74' : CARD.shu;
+            roundRectPath(ctx, cx - size / 2, cy - size / 2, size, size, size * 0.15); ctx.fill();
+            ctx.lineWidth = size * 0.07; ctx.strokeStyle = rim;
+            if (tier === 'shame') ctx.setLineDash([size * 0.12, size * 0.06]);
+            roundRectPath(ctx, cx - size / 2, cy - size / 2, size, size, size * 0.15); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = CARD.paper; ctx.font = `${Math.round(size * 0.58)}px ${CARD.brush}`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(kanji, cx, cy + size * 0.03);
+        }
+        
+        // Draw one card from a spec: { eyebrow, title, stamp, blocks: [...] }
+        async function renderCard(spec, size) {
+            await cardFonts();
+            const W = 1080, H = size === 'square' ? 1080 : 1350;
+            const canvas = document.createElement('canvas');
+            canvas.width = W; canvas.height = H;
+            const ctx = canvas.getContext('2d');
+            const box = drawCardFrame(ctx, W, H, spec.stamp);
+            let y = box.top;
+            const width = box.right - box.left;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            
+            if (spec.eyebrow) {
+                ctx.fillStyle = CARD.shu; ctx.font = `700 28px ${CARD.body}`;
+                if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+                ctx.fillText(spec.eyebrow.toUpperCase(), box.left, y);
+                if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+                y += 22;
+            }
+            if (spec.title) {
+                ctx.fillStyle = CARD.sumi; ctx.font = `800 ${size === 'square' ? 64 : 72}px ${CARD.display}`;
+                wrapLines(ctx, spec.title, width).slice(0, 2).forEach(line => { y += size === 'square' ? 70 : 78; ctx.fillText(line, box.left, y); });
+                y += 34;
+            }
+            
+            for (const block of spec.blocks || []) {
+                if (y >= box.bottom) break;
+                if (block.type === 'rows') {
+                    const rowH = block.rowHeight || 76;
+                    const fits = Math.max(1, Math.floor((box.bottom - y) / rowH));
+                    const rows = block.rows.length > fits ? block.rows.slice(0, fits - 1) : block.rows;
+                    for (const row of rows) {
+                        const mid = y + rowH / 2;
+                        let x = box.left;
+                        if (row.rank != null) {
+                            ctx.fillStyle = CARD.sumi; ctx.font = `800 36px ${CARD.display}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+                            ctx.fillText(String(row.rank), x + 40, mid); x += 56;
+                        }
+                        if (row.move != null) {
+                            ctx.font = `700 22px ${CARD.body}`; ctx.textAlign = 'left';
+                            ctx.fillStyle = row.move > 0 ? CARD.matsu : row.move < 0 ? CARD.shu : CARD.soft;
+                            ctx.fillText(row.move > 0 ? `▲${row.move}` : row.move < 0 ? `▼${-row.move}` : '–', x, mid); x += 56;
+                        }
+                        if (row.avatar !== undefined) { await drawAvatar(ctx, row.avatar, x, mid - 26, 52, row.highlight ? CARD.shu : CARD.line); x += 70; }
+                        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+                        let rightW = 0;
+                        if (row.right) {
+                            ctx.font = `800 36px ${CARD.display}`; ctx.fillStyle = row.rightColor || CARD.sumi;
+                            ctx.fillText(row.right, box.right, row.rightSub ? mid - 12 : mid);
+                            rightW = ctx.measureText(row.right).width;
+                            if (row.rightSub) { ctx.font = `700 22px ${CARD.body}`; ctx.fillStyle = row.rightSubColor || CARD.soft; ctx.fillText(row.rightSub, box.right, mid + 22); rightW = Math.max(rightW, ctx.measureText(row.rightSub).width); }
+                        }
+                        ctx.textAlign = 'left';
+                        ctx.font = `700 ${row.sub ? 32 : 34}px ${CARD.display}`; ctx.fillStyle = row.highlight ? CARD.shu : CARD.sumi;
+                        ctx.fillText(fitText(ctx, row.name, box.right - rightW - 24 - x), x, row.sub ? mid - 14 : mid);
+                        if (row.sub) { ctx.font = `500 22px ${CARD.body}`; ctx.fillStyle = CARD.soft; ctx.fillText(fitText(ctx, row.sub, box.right - rightW - 24 - x), x, mid + 20); }
+                        ctx.strokeStyle = CARD.line; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+                        ctx.beginPath(); ctx.moveTo(box.left, y + rowH); ctx.lineTo(box.right, y + rowH); ctx.stroke(); ctx.setLineDash([]);
+                        y += rowH;
+                    }
+                    if (rows.length < block.rows.length) {
+                        ctx.font = `700 24px ${CARD.body}`; ctx.fillStyle = CARD.soft; ctx.textBaseline = 'middle';
+                        ctx.fillText(`+${block.rows.length - rows.length} more at bushidobowl.org`, box.left, y + rowH / 2); y += rowH;
+                    }
+                    ctx.textBaseline = 'alphabetic';
+                    y += 16;
+                } else if (block.type === 'games') {
+                    const gameH = 112;
+                    const fits = Math.max(1, Math.floor((box.bottom - y) / (gameH + 14)));
+                    for (const game of block.games.slice(0, fits)) {
+                        ctx.fillStyle = CARD.paper; roundRectPath(ctx, box.left, y, width, gameH, 6); ctx.fill();
+                        ctx.strokeStyle = CARD.line; ctx.lineWidth = 2; roundRectPath(ctx, box.left, y, width, gameH, 6); ctx.stroke();
+                        for (const [i, side] of game.sides.entries()) {
+                            const mid = y + 30 + i * 52;
+                            await drawAvatar(ctx, side.avatar, box.left + 18, mid - 20, 40, side.won ? CARD.shu : CARD.line);
+                            ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+                            ctx.font = `800 34px ${CARD.display}`; ctx.fillStyle = side.won ? CARD.sumi : CARD.soft;
+                            ctx.fillText(side.score, box.right - 20, mid);
+                            const scoreW = ctx.measureText(side.score).width;
+                            ctx.textAlign = 'left'; ctx.font = `700 30px ${CARD.display}`; ctx.fillStyle = side.won ? CARD.sumi : CARD.soft;
+                            ctx.fillText(fitText(ctx, side.name, width - 120 - scoreW), box.left + 72, mid);
+                        }
+                        y += gameH + 14;
+                    }
+                    ctx.textBaseline = 'alphabetic';
+                } else if (block.type === 'sides') {
+                    const colW = (width - 24) / block.sides.length;
+                    let tallest = 0;
+                    for (const [i, side] of block.sides.entries()) {
+                        const x = box.left + i * (colW + 24);
+                        const h = 90 + side.lines.length * 44;
+                        tallest = Math.max(tallest, h);
+                        ctx.fillStyle = CARD.paper; ctx.fillRect(x, y, colW, h);
+                        ctx.fillStyle = CARD.sumi; ctx.fillRect(x, y, colW, 8);
+                        await drawAvatar(ctx, side.avatar, x + 18, y + 26, 44);
+                        ctx.font = `800 30px ${CARD.display}`; ctx.fillStyle = CARD.sumi; ctx.textBaseline = 'middle';
+                        ctx.fillText(fitText(ctx, side.title, colW - 90), x + 74, y + 48);
+                        ctx.font = `500 26px ${CARD.body}`; ctx.fillStyle = CARD.sumi;
+                        side.lines.forEach((line, j) => ctx.fillText(fitText(ctx, line, colW - 36), x + 18, y + 100 + j * 44));
+                    }
+                    ctx.textBaseline = 'alphabetic';
+                    y += tallest + 28;
+                } else if (block.type === 'verdict') {
+                    ctx.font = `800 36px ${CARD.display}`;
+                    const w = ctx.measureText(block.label).width + 48;
+                    const color = { fair: CARD.matsu, slight: CARD.kinText, lopsided: CARD.shu }[block.tone] || CARD.sumi;
+                    ctx.strokeStyle = color; ctx.lineWidth = 3; roundRectPath(ctx, box.left, y, w, 60, 4); ctx.stroke();
+                    ctx.fillStyle = color; ctx.textBaseline = 'middle'; ctx.fillText(block.label, box.left + 24, y + 31);
+                    if (block.detail) { ctx.font = `500 26px ${CARD.body}`; ctx.fillStyle = CARD.soft; ctx.fillText(fitText(ctx, block.detail, width - w - 24), box.left + w + 20, y + 31); }
+                    ctx.textBaseline = 'alphabetic';
+                    y += 88;
+                } else if (block.type === 'lines') {
+                    for (const line of block.lines) {
+                        ctx.font = line.bold ? `800 34px ${CARD.display}` : `500 30px ${CARD.body}`;
+                        ctx.fillStyle = line.color || CARD.sumi;
+                        wrapLines(ctx, line.text, width).forEach(l => { y += 46; if (y < box.bottom) ctx.fillText(l, box.left, y); });
+                    }
+                    y += 20;
+                } else if (block.type === 'text') {
+                    let fontSize = block.size || 32;
+                    let lines;
+                    do { ctx.font = `500 ${fontSize}px ${CARD.body}`; lines = wrapLines(ctx, block.text, width); fontSize -= 2; }
+                    while (lines.length * fontSize * 1.5 > box.bottom - y && fontSize > 20);
+                    const lineH = (fontSize + 2) * 1.5;
+                    ctx.fillStyle = CARD.sumi;
+                    ctx.fillRect(box.left, y, 6, Math.min(lines.length * lineH + 8, box.bottom - y));
+                    lines.forEach(l => { y += lineH; if (y < box.bottom) ctx.fillText(l, box.left + 28, y); });
+                    y += 24;
+                } else if (block.type === 'seal') {
+                    const sizePx = block.size || 240;
+                    drawSeal(ctx, block.kanji, block.tier, W / 2, y + sizePx / 2, sizePx);
+                    y += sizePx + 40;
+                    if (block.caption) {
+                        ctx.textAlign = 'center'; ctx.font = `800 60px ${CARD.display}`; ctx.fillStyle = CARD.sumi;
+                        ctx.fillText(block.caption, W / 2, y + 30); y += 70;
+                    }
+                    (block.sublines || []).forEach(line => {
+                        ctx.textAlign = 'center'; ctx.font = `500 30px ${CARD.body}`; ctx.fillStyle = line.color || CARD.soft;
+                        wrapLines(ctx, line.text, width).forEach(l => { y += 44; ctx.fillText(l, W / 2, y); });
+                    });
+                    ctx.textAlign = 'left';
+                    y += 20;
+                } else if (block.type === 'seals') {
+                    let x = box.left;
+                    block.seals.forEach(s => { drawSeal(ctx, s.kanji, s.tier, x + 50, y + 50, 96); x += 120; });
+                    y += 130;
+                }
+            }
+            return canvas;
+        }
+        
+        // ---------- Card builders (what each Share button shares) ----------
+        
+        function cardSpec(type, arg) {
+            const fmt = n => Math.round(n).toLocaleString();
+            const me = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}').user_id;
+            if (type === 'power' && lastPowerCard) {
+                return {
+                    eyebrow: `Bushidō Bowl · week ${lastPowerCard.week}`, title: 'Power Rankings', stamp: '侍',
+                    blocks: [{ type: 'rows', rowHeight: 74, rows: lastPowerCard.rows.map(r => ({ rank: r.rank, move: r.move, avatar: teamInfo(r.userId).avatar, name: teamInfo(r.userId).name, sub: r.blurb, highlight: r.userId === me })) }]
+                };
+            }
+            if (type === 'week' && liveWeekData) {
+                const { week, matchups, rosters } = liveWeekData;
+                const owner = rid => rosters.find(r => r.roster_id === rid)?.owner_id;
+                const games = {};
+                matchups.forEach(m => { if (m.matchup_id != null) (games[m.matchup_id] = games[m.matchup_id] || []).push(m); });
+                const started = matchups.some(m => (m.points || 0) > 0);
+                return {
+                    eyebrow: `Bushidō Bowl · ${started ? 'live scores' : 'this week'}`, title: `Week ${week}`, stamp: '戦',
+                    blocks: [{ type: 'games', games: Object.values(games).filter(p => p.length === 2).map(([a, b]) => ({
+                        sides: [a, b].map((m, i, pair) => ({ name: teamInfo(owner(m.roster_id)).name, avatar: teamInfo(owner(m.roster_id)).avatar, score: (m.points || 0).toFixed(2), won: started && (m.points || 0) > (pair[1 - i].points || 0) }))
+                    })) }]
+                };
+            }
+            if (type === 'matchup' && liveWeekData) {
+                const { week, matchups, rosters } = liveWeekData;
+                const pair = matchups.filter(m => String(m.matchup_id) === String(arg));
+                if (pair.length !== 2) return null;
+                const owner = rid => rosters.find(r => r.roster_id === rid)?.owner_id;
+                const [ua, ub] = pair.map(m => owner(m.roster_id));
+                const prob = winProbability(ua, ub);
+                const rec = allTimeH2H[`${ua}|${ub}`];
+                const started = pair.some(m => (m.points || 0) > 0);
+                const record = id => { const st = rosters.find(r => r.owner_id === id)?.settings || {}; return `${st.wins || 0}–${st.losses || 0}`; };
+                return {
+                    eyebrow: `Week ${week} · ${started ? 'live' : 'preview'}`, title: `${teamInfo(ua).name} vs ${teamInfo(ub).name}`, stamp: '戦',
+                    blocks: [
+                        { type: 'rows', rowHeight: 104, rows: [ua, ub].map((id, i) => ({ avatar: teamInfo(id).avatar, name: teamInfo(id).name, sub: `${record(id)}${prob != null ? ` · ${Math.round((i ? 1 - prob : prob) * 100)}% ${started ? 'pregame' : 'to win'}` : ''}`, right: started ? (pair[i].points || 0).toFixed(2) : '', highlight: id === me })) },
+                        { type: 'lines', lines: [{ text: rec ? (rec.wins === rec.losses ? `All-time series tied ${rec.wins}–${rec.losses}` : `All-time: ${teamInfo(rec.wins > rec.losses ? ua : ub).name} leads ${Math.max(rec.wins, rec.losses)}–${Math.min(rec.wins, rec.losses)}`) : 'First regular-season meeting', color: CARD.soft }] }
+                    ]
+                };
+            }
+            if (type === 'odds' && potOddsCache && lastLeaderboard.length) {
+                const rows = [...lastLeaderboard].sort((a, b) => (potOddsCache.now[b.userId] || 0) - (potOddsCache.now[a.userId] || 0));
+                return {
+                    eyebrow: `Road to ${currentCycle ? currentCycle.end : ''}`, title: 'Who Wins the Pot?', stamp: '天',
+                    blocks: [{ type: 'rows', rowHeight: 74, rows: rows.map((t, i) => {
+                        const now = potOddsCache.now[t.userId] || 0;
+                        const diff = potOddsCache.lastWeek ? now - (potOddsCache.lastWeek[t.userId] || 0) : 0;
+                        return { rank: i + 1, avatar: t.avatar, name: t.teamName, sub: `${(Math.round(t.points * 10) / 10)} dynasty points`, right: formatOdds(now), rightSub: Math.abs(diff) >= 0.5 ? `${diff > 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}` : '', rightSubColor: diff > 0 ? CARD.matsu : CARD.shu, highlight: t.userId === me };
+                    }) }]
+                };
+            }
+            if (type === 'recap' && lastRecapText) {
+                const entry = leagueArchive[leagueArchive.length - 1];
+                return { eyebrow: `Week ${entry?.lastFinishedWeek || ''} recap`, title: "Mike's Take", stamp: '語', blocks: [{ type: 'text', text: lastRecapText, size: 32 }] };
+            }
+            if (type === 'tradeMachine' && warRoomData) {
+                const data = warRoomData;
+                const teamA = data.teams.find(t => t.userId === tradeMachine.a), teamB = data.teams.find(t => t.userId === tradeMachine.b);
+                if (!teamA || !teamB || !tradeMachine.sendA.size || !tradeMachine.sendB.size) return null;
+                const { give, get, afterA, afterB } = tradeMachineResult(data, teamA, teamB);
+                const verdictEl = document.querySelector('#tmVerdict .fairness-verdict');
+                const pots = [...document.querySelectorAll('#tmVerdict .tm-pot')].map(el => el.textContent.replace('Pot odds: ', ''));
+                const line = (team, after) => `${((after.nowTotal - team.nowTotal) * data.pointsPerValue >= 0 ? '+' : '−')}${Math.abs((after.nowTotal - team.nowTotal) * data.pointsPerValue).toFixed(1)} pts/week`;
+                const asset = p => `${p.name}${p.position !== 'PICK' ? ` · ${p.position}${p.age ? ` · ${p.age}` : ''}` : ''}`;
+                return {
+                    eyebrow: 'Trade Machine', title: `${teamA.name} ⇄ ${teamB.name}`, stamp: '商',
+                    blocks: [
+                        { type: 'sides', sides: [
+                            { title: `${teamA.name} gets`, avatar: teamA.avatar, lines: get.map(asset) },
+                            { title: `${teamB.name} gets`, avatar: teamB.avatar, lines: give.map(asset) }
+                        ] },
+                        { type: 'verdict', label: verdictEl?.textContent || 'Verdict', tone: verdictEl?.className.match(/fairness-(\w+)/)?.[1], detail: document.querySelector('#tmVerdict .tm-head > span:nth-child(2)')?.textContent || '' },
+                        { type: 'lines', lines: [
+                            { text: `${teamA.name}: ${line(teamA, afterA)}${pots[0] && !pots[0].includes('calculating') ? ` · pot odds ${pots[0]}` : ''}` },
+                            { text: `${teamB.name}: ${line(teamB, afterB)}${pots[1] && !pots[1].includes('calculating') ? ` · pot odds ${pots[1]}` : ''}` }
+                        ] }
+                    ]
+                };
+            }
+            if (type === 'report' && lastReportTrades[arg]) {
+                const t = lastReportTrades[arg];
+                return {
+                    eyebrow: `Who won the trade? · ${t.season} week ${t.week}`, title: `${teamInfo(t.winner.userId).name} is winning`, stamp: '商',
+                    blocks: [
+                        { type: 'sides', sides: t.sides.map(side => ({ title: `${teamInfo(side.userId).name} got`, avatar: teamInfo(side.userId).avatar, lines: side.got.map(p => `${p.name} · ${p.points.toFixed(1)} pts`).concat(side.picks.map(pk => `${pk} pick`)) })) },
+                        { type: 'lines', lines: [{ text: `Ahead by ${t.winner.netPoints.toFixed(1)} starting points since the deal.`, bold: true }] }
+                    ]
+                };
+            }
+            if (type === 'honor' && honors) {
+                const [userId, key, season, week] = String(arg).split('|');
+                const badge = BADGE_BY_KEY[key];
+                const u = honors.byUser[userId];
+                const earned = u?.badges.find(b => b.key === key && String(b.season) === season && String(b.week) === week);
+                if (!badge || !u) return null;
+                return {
+                    eyebrow: `New honor${week && week !== 'null' ? ` · week ${week}` : ''}`, title: teamInfo(userId).name, stamp: badge.kanji,
+                    blocks: [{ type: 'seal', kanji: badge.kanji, tier: badge.tier, size: 230, caption: badge.name, sublines: [
+                        { text: earned?.detail ? `${badge.desc} · ${earned.detail}` : badge.desc },
+                        { text: `${badge.tier[0].toUpperCase() + badge.tier.slice(1)} badge${TIER_HONOR[badge.tier] ? ` · +${TIER_HONOR[badge.tier]} honor` : ''} · rank ${u.rank.kanji} ${u.rank.name}`, color: CARD.kinText }
+                    ] }]
+                };
+            }
+            if (type === 'badge' && honors) {
+                const badge = BADGE_BY_KEY[arg];
+                if (!badge) return null;
+                const holders = Object.values(honors.byUser).filter(u => u.badgeCounts?.[badge.key]).sort((a, b) => b.badgeCounts[badge.key] - a.badgeCounts[badge.key]);
+                return {
+                    eyebrow: `${badge.family} badge · ${badge.tier}`, title: badge.name, stamp: badge.kanji,
+                    blocks: [
+                        { type: 'seal', kanji: badge.kanji, tier: badge.tier, size: 170, sublines: [{ text: badge.desc }] },
+                        { type: 'rows', rowHeight: 70, rows: holders.length ? holders.map(u => ({ avatar: teamInfo(u.userId).avatar, name: teamInfo(u.userId).name, right: u.badgeCounts[badge.key] > 1 ? `×${u.badgeCounts[badge.key]}` : '' })) : [{ name: 'Unclaimed. Who gets it first?' }] }
+                    ]
+                };
+            }
+            if (type === 'rank' && honors) {
+                const u = honors.byUser[arg];
+                if (!u) return null;
+                const s = u.stats;
+                return {
+                    eyebrow: 'Bushidō rank', title: teamInfo(arg).name, stamp: u.rank.kanji,
+                    blocks: [
+                        { type: 'seal', kanji: u.rank.kanji, tier: 'legendary', size: 220, caption: u.rank.name, sublines: [
+                            { text: `${u.honor.toLocaleString()} honor${u.next ? ` · ${(u.next.honor - u.honor).toLocaleString()} to ${u.next.name}` : ' · highest rank'}`, color: CARD.kinText },
+                            { text: `${s.wins}–${s.losses} career · ${s.titles} title${s.titles === 1 ? '' : 's'} · ${u.badges.length} badges` }
+                        ] },
+                        { type: 'seals', seals: u.topBadges.map(k => BADGE_BY_KEY[k]) }
+                    ]
+                };
+            }
+            return null;
+        }
+        
+        // ---------- Share dialog ----------
+        
+        async function shareCard(type, arg) {
+            const spec = cardSpec(type, arg);
+            if (!spec) { alert('That card isn’t ready yet. Give it a second and try again.'); return; }
+            shareState = { spec, size: 'portrait', blob: null };
+            const dialog = document.getElementById('shareDialog');
+            if (!dialog.open) dialog.showModal();
+            document.querySelectorAll('#shareDialog .share-size .subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.size === 'portrait'));
+            await drawShare();
+        }
+        
+        async function setShareSize(size) {
+            if (!shareState) return;
+            shareState.size = size;
+            document.querySelectorAll('#shareDialog .share-size .subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.size === size));
+            await drawShare();
+        }
+        
+        async function drawShare() {
+            const preview = document.getElementById('sharePreview');
+            const status = document.getElementById('shareStatus');
+            preview.removeAttribute('src');
+            status.textContent = 'Drawing your card…';
+            const state = shareState;
+            try {
+                const canvas = await renderCard(state.spec, state.size);
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                if (shareState !== state) return;
+                state.blob = blob;
+                preview.src = URL.createObjectURL(blob);
+                status.textContent = '';
+            } catch (error) {
+                console.error('Card error:', error);
+                status.textContent = 'Couldn’t draw this card. Try again.';
+            }
+        }
+        
+        function shareFileName() {
+            const slug = (shareState?.spec.title || 'card').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+            return `bushido-bowl-${slug || 'card'}.png`;
+        }
+        
+        async function shareNow() {
+            if (!shareState?.blob) return;
+            const file = new File([shareState.blob], shareFileName(), { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try { await navigator.share({ files: [file], title: shareState.spec.title, text: 'bushidobowl.org' }); } catch (e) { /* closed the share sheet */ }
+            } else {
+                downloadShare();
+            }
+        }
+        
+        function downloadShare() {
+            if (!shareState?.blob) return;
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(shareState.blob);
+            link.download = shareFileName();
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+        
+        async function copyShare() {
+            const status = document.getElementById('shareStatus');
+            if (!shareState?.blob) return;
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': shareState.blob })]);
+                status.textContent = 'Copied. Paste it into your group chat.';
+            } catch (e) {
+                status.textContent = 'This browser can’t copy images. Use Download instead.';
+            }
+        }
+        
+        function closeShare() {
+            document.getElementById('shareDialog').close();
+            shareState = null;
+        }
+        
+        function shareButton(type, arg = '', label = 'Share') {
+            return `<button type="button" class="share-btn" onclick="event.stopPropagation(); shareCard('${type}', '${escapeHTML(String(arg))}')"><span aria-hidden="true">⤴</span> ${label}</button>`;
         }
 
         // ==================== SUBTABS ====================
