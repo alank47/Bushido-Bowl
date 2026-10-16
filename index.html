@@ -2245,6 +2245,11 @@
             width: min(520px, calc(100vw - 32px));
         }
 
+        .share-dialog .share-size {
+            position: static;
+            margin: 12px 0;
+        }
+
         .share-preview {
             display: flex;
             justify-content: center;
@@ -2271,8 +2276,9 @@
         }
 
         .share-actions button {
-            flex: 1;
-            padding: 12px;
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 12px 8px;
         }
 
         .share-actions .secondary-action {
@@ -4134,7 +4140,7 @@
             <div class="share-actions">
                 <button type="button" onclick="shareNow()">Share</button>
                 <button type="button" class="secondary-action" onclick="downloadShare()">Download</button>
-                <button type="button" class="secondary-action" onclick="copyShare()">Copy</button>
+                <button type="button" class="secondary-action" id="shareCopyBtn" onclick="copyShare()">Copy</button>
             </div>
         </div>
     </dialog>
@@ -10346,6 +10352,8 @@
             if (!spec) { alert('That card isn’t ready yet. Give it a second and try again.'); return; }
             shareState = { spec, size: 'portrait', blob: null };
             const dialog = document.getElementById('shareDialog');
+            // Copying images only works on desktop browsers, so hide it where it can't
+            document.getElementById('shareCopyBtn').hidden = !(window.ClipboardItem && navigator.clipboard?.write) || matchMedia('(pointer: coarse)').matches;
             if (!dialog.open) dialog.showModal();
             document.querySelectorAll('#shareDialog .share-size .subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.size === 'portrait'));
             await drawShare();
