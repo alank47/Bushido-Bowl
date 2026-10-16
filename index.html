@@ -2266,6 +2266,17 @@
             box-shadow: 0 10px 30px -12px rgba(29, 26, 23, 0.5);
         }
 
+        .share-hint {
+            margin: 10px 0 14px;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        #shareStatus {
+            margin: 0 0 8px;
+            text-align: center;
+        }
+
         .share-preview img:not([src]) {
             display: none;
         }
@@ -4136,6 +4147,7 @@
                 <button type="button" class="subtab-btn" data-size="square" onclick="setShareSize('square')">Square</button>
             </nav>
             <div class="share-preview"><img id="sharePreview" alt="Preview of the card"></div>
+            <p id="shareHint" class="section-note share-hint" hidden>Tip: press and hold the card to save it to Photos or share it.</p>
             <p id="shareStatus" class="section-note" role="status"></p>
             <div class="share-actions">
                 <button type="button" onclick="shareNow()">Share</button>
@@ -10353,7 +10365,8 @@
             shareState = { spec, size: 'portrait', blob: null };
             const dialog = document.getElementById('shareDialog');
             // Copying images only works on desktop browsers, so hide it where it can't
-            document.getElementById('shareCopyBtn').hidden = !(window.ClipboardItem && navigator.clipboard?.write) || matchMedia('(pointer: coarse)').matches;
+            document.getElementById('shareCopyBtn').hidden = !(window.ClipboardItem && navigator.clipboard?.write) || canTouch();
+            document.getElementById('shareHint').hidden = !canTouch();
             if (!dialog.open) dialog.showModal();
             document.querySelectorAll('#shareDialog .share-size .subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.size === 'portrait'));
             await drawShare();
@@ -10390,14 +10403,28 @@
             return `bushido-bowl-${slug || 'card'}.png`;
         }
         
+        // Opens the phone's own share sheet (Messages, Instagram, AirDrop...). Share only the image: on iOS,
+        // adding text makes some apps drop the picture. The card already carries the site name.
         async function shareNow() {
             if (!shareState?.blob) return;
+            const status = document.getElementById('shareStatus');
             const file = new File([shareState.blob], shareFileName(), { type: 'image/png' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try { await navigator.share({ files: [file], title: shareState.spec.title, text: 'bushidobowl.org' }); } catch (e) { /* closed the share sheet */ }
-            } else {
+            if (!(navigator.canShare && navigator.canShare({ files: [file] }))) {
                 downloadShare();
+                status.textContent = canTouch() ? 'This browser can’t open the share menu, so the card was saved instead. You can also press and hold the card above.' : 'Saved to your downloads.';
+                return;
             }
+            try {
+                await navigator.share({ files: [file] });
+            } catch (e) {
+                if (e.name === 'AbortError') return;   // closed the share sheet
+                downloadShare();
+                status.textContent = 'Couldn’t open the share menu, so the card was saved instead.';
+            }
+        }
+        
+        function canTouch() {
+            return matchMedia('(pointer: coarse)').matches;
         }
         
         function downloadShare() {
