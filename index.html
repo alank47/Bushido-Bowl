@@ -2204,6 +2204,414 @@
             }
         }
 
+        /* ---------- Ranks and badges ---------- */
+        .seal {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            width: 46px;
+            height: 46px;
+            border-radius: 7px;
+            background: var(--shu);
+            color: var(--card);
+            font-family: var(--font-brush);
+            font-size: 1.45rem;
+            line-height: 1;
+            box-shadow: inset 0 0 0 2px var(--shu), inset 0 0 0 3px rgba(251, 247, 238, 0.55);
+            border: 3px solid var(--sumi);
+        }
+
+        .seal.tier-rare { border-color: #a9a7a0; }
+        .seal.tier-legendary { border-color: var(--kin); box-shadow: inset 0 0 0 2px var(--shu), inset 0 0 0 3px rgba(251, 247, 238, 0.55), 0 0 0 1px #a67c2e; }
+        .seal.tier-shame { background: #8c7f74; border: 2px dashed var(--sumi-soft); box-shadow: none; opacity: 0.85; }
+
+        .seal small {
+            position: absolute;
+            right: -8px;
+            bottom: -8px;
+            padding: 1px 4px;
+            border-radius: 6px;
+            background: var(--sumi);
+            color: var(--card);
+            font-family: var(--font-body);
+            font-size: 0.62rem;
+            font-weight: 700;
+        }
+
+        .seal.small { width: 32px; height: 32px; font-size: 1rem; border-width: 2px; border-radius: 5px; }
+        .seal.mini { width: 22px; height: 22px; font-size: 0.72rem; border-width: 1.5px; border-radius: 4px; box-shadow: none; }
+
+        .lb-honors {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        .rank-chip,
+        .ronin-chip {
+            font-family: var(--font-brush);
+            font-size: 0.78rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: var(--sumi);
+            color: var(--card);
+            white-space: nowrap;
+        }
+
+        .ronin-chip {
+            background: transparent;
+            color: var(--sumi-soft);
+            border: 1px dashed var(--sumi-soft);
+        }
+
+        .profile-rank {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .rank-seal {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 76px;
+            height: 76px;
+            padding: 0 10px;
+            border-radius: 10px;
+            background: var(--sumi);
+            color: var(--card);
+            font-family: var(--font-brush);
+            font-size: 2rem;
+            box-shadow: inset 0 0 0 3px var(--sumi), inset 0 0 0 4px var(--kin);
+            transform: rotate(-3deg);
+        }
+
+        .profile-rank-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .profile-rank-name {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        .profile-honor {
+            font-size: 0.85rem;
+            color: var(--sumi-soft);
+        }
+
+        .honor-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: var(--line-soft);
+            overflow: hidden;
+        }
+
+        .honor-bar span {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, #a67c2e, var(--kin), #e2c47e);
+        }
+
+        .badge-family h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            margin: 16px 0 8px;
+        }
+
+        .badge-case {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+            gap: 12px 8px;
+        }
+
+        .badge-slot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            text-align: center;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--sumi);
+        }
+
+        .badge-slot.locked {
+            opacity: 0.3;
+            filter: grayscale(1);
+        }
+
+        .panel-tabs {
+            margin: 0 0 16px;
+        }
+
+        .honor-feed {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .honor-feed li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.92rem;
+        }
+
+        .badge-hall {
+            list-style: none;
+        }
+
+        .badge-hall li {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .badge-hall li.locked .seal {
+            opacity: 0.35;
+            filter: grayscale(1);
+        }
+
+        .badge-hall-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .badge-hall-info span {
+            font-size: 0.8rem;
+            color: var(--sumi-soft);
+        }
+
+        .badge-hall-holders {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 4px;
+            max-width: 45%;
+        }
+
+        .badge-hall-holders > span {
+            position: relative;
+        }
+
+        .badge-hall-holders .team-avatar {
+            width: 28px;
+            height: 28px;
+        }
+
+        .badge-hall-holders small {
+            position: absolute;
+            right: -4px;
+            bottom: -4px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            background: var(--sumi);
+            color: var(--card);
+            border-radius: 5px;
+            padding: 0 3px;
+        }
+
+        .badge-hall-holders em {
+            font-size: 0.8rem;
+            color: var(--sumi-soft);
+        }
+
+        .seal[data-badge] {
+            cursor: pointer;
+        }
+
+        .badge-card {
+            position: fixed;
+            z-index: 80;
+            padding: 16px 18px 14px;
+            background: var(--card);
+            border: 2px solid var(--sumi);
+            border-radius: 10px;
+            box-shadow: 4px 4px 0 var(--sumi), 0 18px 40px -16px rgba(29, 26, 23, 0.45);
+            color: var(--sumi);
+            font-size: 0.9rem;
+            animation: fadeIn 0.18s ease;
+        }
+
+        .badge-card-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-right: 18px;
+        }
+
+        .badge-card-head div {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .badge-card-head strong {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+        }
+
+        .badge-card-head span {
+            font-size: 0.78rem;
+            color: var(--sumi-soft);
+        }
+
+        .badge-card p {
+            margin: 10px 0;
+        }
+
+        .badge-card-holders {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--line);
+            font-size: 0.85rem;
+        }
+
+        .badge-card-holders .team-avatar {
+            width: 24px;
+            height: 24px;
+        }
+
+        .badge-card-holders em {
+            color: var(--sumi-soft);
+        }
+
+        .honor-guide {
+            padding: 16px 18px;
+            background: var(--washi);
+            border: 1px solid var(--line);
+            border-radius: 3px;
+        }
+
+        .guide-ranks {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 8px;
+            margin: 12px 0 16px;
+        }
+
+        .guide-rank {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 10px 4px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 3px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--sumi-soft);
+        }
+
+        .guide-rank:last-child {
+            border-color: var(--kin);
+            box-shadow: inset 0 3px 0 var(--kin);
+        }
+
+        .guide-rank-kanji {
+            font-family: var(--font-brush);
+            font-size: 1.4rem;
+            color: var(--sumi);
+        }
+
+        .guide-rank strong {
+            font-size: 0.85rem;
+            color: var(--sumi);
+        }
+
+        .guide-cols {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 20px;
+        }
+
+        .guide-cols h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            margin: 0 0 8px;
+        }
+
+        .guide-tiers {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .guide-tiers li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--sumi-soft);
+        }
+
+        .guide-tiers li span {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .guide-tiers strong {
+            color: var(--sumi);
+        }
+
+        .guide-points {
+            list-style: none;
+        }
+
+        .guide-points li {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px dashed var(--line);
+            font-size: 0.88rem;
+        }
+
+        .guide-ronin {
+            margin: 12px 0 0;
+            font-size: 0.82rem;
+            color: var(--sumi-soft);
+        }
+
+        @media (max-width: 768px) {
+            .guide-ranks {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .guide-cols {
+                grid-template-columns: 1fr;
+            }
+
+            .lb-honors {
+                margin-left: 6px;
+            }
+
+            .lb-honors .seal.mini:nth-of-type(n+2) {
+                display: none;
+            }
+
+            .badge-hall-holders {
+                max-width: 40%;
+            }
+        }
+
         /* ---------- Subtabs ---------- */
         .subtabs {
             display: flex;
@@ -3460,6 +3868,12 @@
                 <div id="recapContent"></div>
             </div>
 
+            <!-- New badges earned in the latest week -->
+            <div class="stat-section" id="honorsSection" hidden>
+                <h2 class="section-title" id="honorsTitle">New Honors</h2>
+                <div id="honorsContent"></div>
+            </div>
+
             <!-- Power rankings (this season's form) -->
             <div class="stat-section" id="powerSection" hidden>
                 <h2 class="section-title" id="powerTitle">Power Rankings</h2>
@@ -3883,6 +4297,9 @@
             document.getElementById('recapSection').hidden = true;
             document.getElementById('powerSection').hidden = true;
             tradeReportLoaded = null;
+            honors = null;
+            honorsExtrasRun++;
+            document.getElementById('honorsSection').hidden = true;
         }
 
         async function showDashboard() {
@@ -4263,7 +4680,7 @@
                             ${cycleSeasons.length} season${cycleSeasons.length > 1 ? 's' : ''} counted${cycle.number > 1 ? ` this cycle · earlier seasons live in Historical Stats and the Hall of Shoguns` : ''}
                         </div>
                     </div>
-                    <p class="table-hint">Select a team to see its roster</p>
+                    <p class="table-hint">Select a team to see its profile, badges and roster</p>
                     <table class="leaderboard-table">
                         <thead>
                             <tr>
@@ -4338,6 +4755,7 @@
                 loadMikeRecap(race);
                 leaderboardReady = true;
                 renderPowerRankings();
+                loadHonors();
                 if (document.getElementById('warTab')?.classList.contains('active')) loadWarRoom();
                 if (document.getElementById('tradesTab')?.classList.contains('active')) loadTradeReport();
                 
@@ -7086,6 +7504,7 @@
                         <p class="race-footnote">Regular-season games only.</p>
                     </div>
                 ` : ''}
+                ${renderBadgeHall()}
                 ${seasonSections}
             `;
         }
@@ -7558,7 +7977,12 @@
                         <div class="roster-manager">${escapeHTML(manager)}</div>
                     </div>
                 </div>
-                <div id="rosterBody">
+                <nav class="subtabs panel-tabs" aria-label="Team panel">
+                    <button type="button" class="subtab-btn active" data-view="profile" onclick="showTeamView('profile')">Profile</button>
+                    <button type="button" class="subtab-btn" data-view="roster" onclick="showTeamView('roster')">Roster</button>
+                </nav>
+                <div id="profileBody" data-user-id="${escapeHTML(userId)}">${renderProfile(userId)}</div>
+                <div id="rosterBody" class="subtab-off">
                     <div class="loading"><div class="spinner"></div><p>Loading roster...</p></div>
                 </div>
             `;
@@ -7581,6 +8005,12 @@
                 if (requestId !== rosterRequestId) return;
                 document.getElementById('rosterBody').innerHTML = `<div class="error">Couldn't load this roster: ${escapeHTML(error.message)}</div>`;
             }
+        }
+        
+        function showTeamView(view) {
+            document.querySelectorAll('#rosterContent .panel-tabs .subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+            document.getElementById('profileBody')?.classList.toggle('subtab-off', view !== 'profile');
+            document.getElementById('rosterBody')?.classList.toggle('subtab-off', view !== 'roster');
         }
         
         function closeRoster() {
@@ -8867,6 +9297,488 @@
             setTimeout(() => { if (buddy.classList.contains('leaving')) buddy.hidden = true; }, 450);
         }
 
+        // ==================== BUSHIDŌ RANKS & BADGES ====================
+        //
+        // Career honor from every season (all pot cycles): game results plus badges. Everything is worked out
+        // from league history on each visit, so it's retroactive and needs no upkeep. Game badges are ready with
+        // the leaderboard; trade, lineup and draft badges finish a few seconds later in the background.
+        
+        const RANKS = [
+            { kanji: '足軽', name: 'Ashigaru', honor: 0 },
+            { kanji: '侍', name: 'Samurai', honor: 150 },
+            { kanji: '旗本', name: 'Hatamoto', honor: 350 },
+            { kanji: '家老', name: 'Karō', honor: 650 },
+            { kanji: '大名', name: 'Daimyō', honor: 1000 },
+            { kanji: '将軍', name: 'Shōgun', honor: 1500 }
+        ];
+        const TIER_HONOR = { common: 15, rare: 30, legendary: 60, shame: 0 };
+        const HONOR_FOR = { win: 5, highScore: 10, playoffBerth: 25, titleGame: 40, title: 100, potWin: 500 };
+        
+        const BADGES = [
+            // Battlefield
+            { key: 'blowout', family: 'Battlefield', kanji: '嵐', name: 'Blowout Artist', tier: 'common', desc: 'Win by 50 or more' },
+            { key: 'photo', family: 'Battlefield', kanji: '刹', name: 'Photo Finish', tier: 'common', desc: 'Win by less than a point' },
+            { key: 'march', family: 'Battlefield', kanji: '進', name: 'Five-Game March', tier: 'common', desc: 'Win 5 in a row' },
+            { key: 'juggernaut', family: 'Battlefield', kanji: '鬼', name: 'Juggernaut', tier: 'rare', desc: 'Score 175+ in a week' },
+            { key: 'giant', family: 'Battlefield', kanji: '討', name: 'Giant Slayer', tier: 'rare', desc: 'Beat the team with the best record' },
+            { key: 'campaign', family: 'Battlefield', kanji: '征', name: 'Ten-Game Campaign', tier: 'legendary', desc: 'Win 10 in a row' },
+            { key: 'heartbreak', family: 'Battlefield', kanji: '泣', name: 'Heartbreak Kid', tier: 'shame', desc: 'Lose by less than a point' },
+            // Strategist
+            { key: 'iron', family: 'Strategist', kanji: '鉄', name: 'Iron Lineup', tier: 'rare', desc: 'Start the best possible lineup 4 weeks in a row' },
+            { key: 'coach', family: 'Strategist', kanji: '師', name: 'Coach of the Year', tier: 'legendary', desc: 'Leave the fewest points on the bench in a season' },
+            { key: 'bench', family: 'Strategist', kanji: '怠', name: "Benchwarmer's Curse", tier: 'shame', desc: 'Leave 40+ points on the bench in a week' },
+            // Merchant
+            { key: 'firstDeal', family: 'Merchant', kanji: '縁', name: 'First Deal', tier: 'common', desc: 'Make your first trade' },
+            { key: 'wheeler', family: 'Merchant', kanji: '市', name: 'Wheeler-Dealer', tier: 'common', desc: 'Make 8+ trades in a season' },
+            { key: 'fleece', family: 'Merchant', kanji: '商', name: 'Fleece Artist', tier: 'legendary', desc: "The season's best trade (50+ points ahead)" },
+            { key: 'remorse', family: 'Merchant', kanji: '悔', name: "Buyer's Remorse", tier: 'shame', desc: "The season's worst trade (50+ points behind)" },
+            // Fortune
+            { key: 'lucky', family: 'Fortune', kanji: '福', name: 'Lucky Charm', tier: 'rare', desc: 'Most wins with a below-median score in a season' },
+            { key: 'thief', family: 'Fortune', kanji: '盗', name: 'Lottery Thief', tier: 'rare', desc: 'Land 1.01 without finishing last' },
+            { key: 'cursed', family: 'Fortune', kanji: '呪', name: 'Cursed', tier: 'shame', desc: 'Most losses with an above-median score in a season' },
+            // Legacy
+            { key: 'king', family: 'Legacy', kanji: '王', name: 'Regular Season King', tier: 'rare', desc: 'Best record in a season' },
+            { key: 'cannon', family: 'Legacy', kanji: '砲', name: 'Points Machine', tier: 'rare', desc: 'Most points scored in a season' },
+            { key: 'whisperer', family: 'Legacy', kanji: '眼', name: 'Rookie Whisperer', tier: 'rare', desc: "Draft the rookie class's biggest riser" },
+            { key: 'champion', family: 'Legacy', kanji: '覇', name: 'Champion', tier: 'legendary', desc: 'Win a title' },
+            { key: 'backToBack', family: 'Legacy', kanji: '双', name: 'Back-to-Back', tier: 'legendary', desc: 'Win titles in consecutive seasons' },
+            { key: 'potWinner', family: 'Legacy', kanji: '天', name: 'Pot Winner', tier: 'legendary', desc: 'Win a 5-year pot' },
+            { key: 'spoon', family: 'Legacy', kanji: '匙', name: 'Wooden Spoon', tier: 'shame', desc: 'Worst record in a season' }
+        ];
+        const BADGE_BY_KEY = Object.fromEntries(BADGES.map(b => [b.key, b]));
+        const BADGE_FAMILIES = ['Battlefield', 'Strategist', 'Merchant', 'Fortune', 'Legacy'];
+        
+        let honors = null;           // { byUser, ready: 'games' | 'all' }
+        let honorsExtrasRun = 0;
+        
+        function seal(badge, size = '', count = 1) {
+            return `<span class="seal tier-${badge.tier} ${size}" data-badge="${badge.key}" role="button" tabindex="0" aria-label="${escapeHTML(badge.name)}" title="${escapeHTML(badge.name)}: ${escapeHTML(badge.desc)}">${badge.kanji}${count > 1 ? `<small>×${count}</small>` : ''}</span>`;
+        }
+        
+        function rankFor(honor, potWins) {
+            let rank = RANKS[0];
+            RANKS.forEach(r => { if (honor >= r.honor) rank = r; });
+            if (potWins > 0) rank = RANKS[RANKS.length - 1];
+            const next = RANKS[RANKS.indexOf(rank) + 1] || null;
+            return { rank, next };
+        }
+        
+        // Season-by-season results and game badges, straight from the leaderboard's archive
+        function computeGameHonors() {
+            const byUser = {};
+            const me = id => (byUser[id] = byUser[id] || { userId: id, stats: { wins: 0, losses: 0, ties: 0, highScores: 0, berths: 0, titleGames: 0, titles: 0, potWins: 0, seasons: new Set() }, badges: [], seasonPoints: {} });
+            const award = (id, key, season, week = null, detail = '') => { if (id) me(id).badges.push({ key, season, week, detail }); };
+            const length = Math.max(1, getSettings().dynastyLength);
+            const firstSeason = leagueArchive[0]?.season;
+            const titleSeasons = {};
+            const streak = {}; // userId -> current run { type, length }
+            
+            leagueArchive.forEach(entry => {
+                const season = entry.season;
+                const complete = entry.league.status === 'complete';
+                const games = seasonGames(entry, { regularOnly: true }).sort((a, b) => a.week - b.week);
+                const counts = {};
+                const c = id => (counts[id] = counts[id] || { wins: 0, highScores: 0, berths: 0, titleGames: 0, titles: 0 });
+                entry.rosters.forEach(r => { if (r.owner_id) { me(r.owner_id).stats.seasons.add(season); c(r.owner_id); } });
+                
+                // Week by week: results, high scores, streaks, game badges, standings for Giant Slayer
+                const record = {};
+                const weeks = [...new Set(games.map(g => g.week))];
+                weeks.forEach(week => {
+                    const weekGames = games.filter(g => g.week === week);
+                    const leader = Object.entries(record).sort((a, b) => b[1].w - a[1].w || b[1].pf - a[1].pf)[0]?.[0];
+                    const sides = weekGames.flatMap(g => [g.a, g.b]);
+                    const sorted = sides.map(x => x.points).sort((a, b) => a - b);
+                    const median = (sorted[Math.floor((sorted.length - 1) / 2)] + sorted[Math.ceil((sorted.length - 1) / 2)]) / 2;
+                    const top = Math.max(...sides.map(x => x.points));
+                    sides.forEach(x => {
+                        if (x.points === top && top > 0) { me(x.userId).stats.highScores++; c(x.userId).highScores++; }
+                        if (x.points >= 175) award(x.userId, 'juggernaut', season, week, `${x.points.toFixed(1)} points`);
+                    });
+                    weekGames.forEach(g => {
+                        [[g.a, g.b], [g.b, g.a]].forEach(([mine, opp]) => {
+                            const s = me(mine.userId).stats;
+                            const margin = mine.points - opp.points;
+                            const type = margin > 0 ? 'W' : margin < 0 ? 'L' : 'T';
+                            if (type === 'W') { s.wins++; c(mine.userId).wins++; } else if (type === 'L') s.losses++; else s.ties++;
+                            if (margin >= 50) award(mine.userId, 'blowout', season, week, `by ${margin.toFixed(1)}`);
+                            if (margin > 0 && margin < 1) award(mine.userId, 'photo', season, week, `by ${margin.toFixed(2)}`);
+                            if (margin < 0 && margin > -1) award(mine.userId, 'heartbreak', season, week, `by ${(-margin).toFixed(2)}`);
+                            if (type === 'W' && week > 1 && opp.userId === leader && leader !== mine.userId) award(mine.userId, 'giant', season, week, `beat ${teamInfo(opp.userId).name}`);
+                            // Streaks run across seasons
+                            const run = streak[mine.userId] = streak[mine.userId]?.type === type ? { type, length: streak[mine.userId].length + 1 } : { type, length: 1 };
+                            if (type === 'W' && run.length === 5) award(mine.userId, 'march', season, week);
+                            if (type === 'W' && run.length === 10) award(mine.userId, 'campaign', season, week);
+                            const rec = record[mine.userId] = record[mine.userId] || { w: 0, pf: 0, lucky: 0, unlucky: 0 };
+                            rec.pf += mine.points;
+                            if (type === 'W') rec.w++;
+                            if (type === 'W' && mine.points < median) rec.lucky++;
+                            if (type === 'L' && mine.points > median) rec.unlucky++;
+                        });
+                    });
+                });
+                
+                if (complete) {
+                    const settings = r => r.settings || {};
+                    const pf = r => (settings(r).fpts || 0) + (settings(r).fpts_decimal || 0) / 100;
+                    const standings = entry.rosters.filter(r => r.owner_id).sort((a, b) => (settings(b).wins || 0) - (settings(a).wins || 0) || pf(b) - pf(a));
+                    const playoffTeams = entry.league.settings.playoff_teams || 6;
+                    standings.slice(0, playoffTeams).forEach(r => { if ((settings(r).wins || 0) > 0) { me(r.owner_id).stats.berths++; c(r.owner_id).berths++; } });
+                    if (standings.length) {
+                        award(standings[0].owner_id, 'king', season, null, `${settings(standings[0]).wins}-${settings(standings[0]).losses}`);
+                        award(standings[standings.length - 1].owner_id, 'spoon', season, null, `${settings(standings[standings.length - 1]).wins}-${settings(standings[standings.length - 1]).losses}`);
+                        const most = [...standings].sort((a, b) => pf(b) - pf(a))[0];
+                        award(most.owner_id, 'cannon', season, null, `${pf(most).toFixed(1)} points`);
+                    }
+                    const final = entry.bracket?.find(m => m.p === 1);
+                    const owner = rid => entry.rosters.find(r => r.roster_id === rid)?.owner_id;
+                    if (final?.w && final?.l) {
+                        const champ = owner(final.w), runner = owner(final.l);
+                        [champ, runner].forEach(id => { if (id) { me(id).stats.titleGames++; c(id).titleGames++; } });
+                        if (champ) {
+                            me(champ).stats.titles++; c(champ).titles++;
+                            award(champ, 'champion', season, null, `beat ${teamInfo(runner).name}`);
+                            if (titleSeasons[champ]?.includes(season - 1)) award(champ, 'backToBack', season, null, `${season - 1} and ${season}`);
+                            (titleSeasons[champ] = titleSeasons[champ] || []).push(season);
+                        }
+                    }
+                    const luckiest = Object.entries(record).sort((a, b) => b[1].lucky - a[1].lucky)[0];
+                    const cursed = Object.entries(record).sort((a, b) => b[1].unlucky - a[1].unlucky)[0];
+                    if (luckiest && luckiest[1].lucky > 0) award(luckiest[0], 'lucky', season, null, `${luckiest[1].lucky} lucky wins`);
+                    if (cursed && cursed[1].unlucky > 0) award(cursed[0], 'cursed', season, null, `${cursed[1].unlucky} unlucky losses`);
+                }
+                
+                // Dynasty points this season (for pot winners of finished cycles)
+                Object.entries(counts).forEach(([id, k]) => {
+                    me(id).seasonPoints[season] = k.wins * SCORING.regularSeasonWin + k.highScores * SCORING.highestWeeklyScore +
+                        k.berths * SCORING.playoffBerth + k.titleGames * SCORING.championshipAppearance + k.titles * SCORING.titleWin;
+                });
+            });
+            
+            // Pot winners: every finished cycle
+            if (firstSeason != null) {
+                const latest = leagueArchive[leagueArchive.length - 1];
+                for (let start = firstSeason; start + length - 1 <= latest.season; start += length) {
+                    const end = start + length - 1;
+                    const endEntry = leagueArchive.find(e => e.season === end);
+                    if (!endEntry || endEntry.league.status !== 'complete') continue;
+                    const totals = Object.values(byUser).map(u => ({ id: u.userId, pts: Object.entries(u.seasonPoints).filter(([s]) => s >= start && s <= end).reduce((t, [, v]) => t + v, 0) }));
+                    const winner = totals.sort((a, b) => b.pts - a.pts)[0];
+                    if (winner) { me(winner.id).stats.potWins++; award(winner.id, 'potWinner', end, null, `${start}–${end} pot`); }
+                }
+            }
+            
+            // Rōnin: on a 5+ game losing streak right now
+            Object.values(byUser).forEach(u => { u.ronin = streak[u.userId]?.type === 'L' && streak[u.userId].length >= 5 ? streak[u.userId].length : 0; });
+            return { byUser, ready: 'games' };
+        }
+        
+        // Trades, lineups and drafts: heavier data, added in the background
+        async function addExtraHonors(result) {
+            const [players, values, txLists, drafts] = await Promise.all([
+                getSleeperPlayers(),
+                getPlayerValues(),
+                Promise.all(leagueArchive.map(e => fetchSleeperTransactions(e.league.league_id))),
+                Promise.all(leagueArchive.map(e => remembered(`drafts:${e.league.league_id}`, () => fetch(`https://api.sleeper.app/v1/league/${e.league.league_id}/drafts`).then(r => (r.ok ? r.json() : [])))))
+            ]);
+            const byUser = result.byUser;
+            const award = (id, key, season, week = null, detail = '') => { if (id && byUser[id]) byUser[id].badges.push({ key, season, week, detail }); };
+            
+            // Lineups: best possible lineup each week vs. the one started
+            leagueArchive.forEach(entry => {
+                const slots = (entry.league.roster_positions || []).filter(x => !['BN', 'IR', 'TAXI'].includes(x));
+                const owner = {};
+                entry.rosters.forEach(r => { owner[r.roster_id] = r.owner_id; });
+                const benchLeft = {}; // userId -> season total
+                const perfectRun = {};
+                entry.matchups.forEach(({ week, matchups }) => {
+                    if (week >= entry.playoffWeekStart || week > entry.lastFinishedWeek || !matchups?.length) return;
+                    if (Math.max(...matchups.map(m => m.points || 0)) === 0) return;
+                    matchups.forEach(m => {
+                        const id = owner[m.roster_id];
+                        if (!id || !m.players_points) return;
+                        const pool = Object.entries(m.players_points).map(([pid, pts]) => ({ id: pid, position: players[pid]?.position || (isNaN(pid) ? 'DEF' : '?'), pts: pts || 0 }));
+                        const best = bestLineup(pool, slots, 'pts').total;
+                        const started = (m.starters_points || []).reduce((a, b) => a + (b || 0), 0);
+                        const left = Math.max(0, best - started);
+                        benchLeft[id] = (benchLeft[id] || 0) + left;
+                        if (left >= 40) award(id, 'bench', entry.season, week, `${left.toFixed(1)} points on the bench`);
+                        perfectRun[id] = left < 1 ? (perfectRun[id] || 0) + 1 : 0;
+                        if (perfectRun[id] === 4) award(id, 'iron', entry.season, week);
+                    });
+                });
+                if (entry.league.status === 'complete') {
+                    const coach = Object.entries(benchLeft).sort((a, b) => a[1] - b[1])[0];
+                    if (coach) award(coach[0], 'coach', entry.season, null, `${coach[1].toFixed(1)} bench points all season`);
+                }
+            });
+            
+            // Trades: judged by points scored since (same as "Who Won the Trade?")
+            const report = buildTradeReport(players, values, txLists);
+            const firstTrade = {};
+            const perSeason = {};
+            [...report.trades].sort((a, b) => a.created - b.created).forEach(trade => {
+                trade.sides.forEach(side => {
+                    if (!firstTrade[side.userId]) { firstTrade[side.userId] = true; award(side.userId, 'firstDeal', trade.season, trade.week); }
+                    const key = `${side.userId}|${trade.season}`;
+                    perSeason[key] = (perSeason[key] || 0) + 1;
+                    if (perSeason[key] === 8) award(side.userId, 'wheeler', trade.season);
+                });
+            });
+            [...new Set(report.trades.map(t => t.season))].forEach(season => {
+                const sides = report.trades.filter(t => t.season === season && t.started).flatMap(t => t.sides);
+                const best = [...sides].sort((a, b) => b.netPoints - a.netPoints)[0];
+                const worst = [...sides].sort((a, b) => a.netPoints - b.netPoints)[0];
+                if (best && best.netPoints >= 50) award(best.userId, 'fleece', season, null, `+${best.netPoints.toFixed(1)} points`);
+                if (worst && worst.netPoints <= -50) award(worst.userId, 'remorse', season, null, `${worst.netPoints.toFixed(1)} points`);
+            });
+            
+            // Drafts: lottery luck and rookie scouting
+            const allDrafts = drafts.flat().filter(d => d.status === 'complete');
+            const pickLists = await Promise.all(allDrafts.map(d => remembered(`draftpicks:${d.draft_id}`, () => fetch(`https://api.sleeper.app/v1/draft/${d.draft_id}/picks`).then(r => (r.ok ? r.json() : [])))));
+            allDrafts.forEach((draft, i) => {
+                const picks = pickLists[i] || [];
+                const teams = draft.settings?.teams || 12;
+                const startup = picks.length > teams * 6;
+                const season = Number(draft.season);
+                if (!startup && draft.draft_order) {
+                    const first = Object.entries(draft.draft_order).find(([, slot]) => slot === 1)?.[0];
+                    const prev = leagueArchive.find(e => e.season === season - 1 && e.league.status === 'complete');
+                    if (first && prev) {
+                        const st = r => r.settings || {};
+                        const pf = r => (st(r).fpts || 0) + (st(r).fpts_decimal || 0) / 100;
+                        const standings = prev.rosters.filter(r => r.owner_id).sort((a, b) => (st(b).wins || 0) - (st(a).wins || 0) || pf(b) - pf(a));
+                        const place = standings.findIndex(r => r.owner_id === first) + 1;
+                        if (place > 0 && place < standings.length) award(first, 'thief', season, null, `1.01 after finishing ${place}${place === 1 ? 'st' : place === 2 ? 'nd' : place === 3 ? 'rd' : 'th'}`);
+                    }
+                }
+                const rookies = picks.filter(p => String(p.metadata?.years_exp) === '0' && GRADE_POSITIONS.includes(p.metadata?.position)).sort((a, b) => a.pick_no - b.pick_no);
+                const slotValues = rookies.map(p => values[p.player_id] || 0).sort((a, b) => b - a);
+                const riser = rookies.map((p, slot) => ({ p, change: (values[p.player_id] || 0) - (slotValues[slot] || 0) })).sort((a, b) => b.change - a.change)[0];
+                if (riser && riser.change > 0 && riser.p.picked_by) award(riser.p.picked_by, 'whisperer', season, null, `${riser.p.metadata.first_name} ${riser.p.metadata.last_name} at ${riser.p.round}.${String(((riser.p.pick_no - 1) % teams) + 1).padStart(2, '0')}`);
+            });
+            result.ready = 'all';
+            return result;
+        }
+        
+        // Honor totals and ranks from stats + badges
+        function finishHonors(result) {
+            Object.values(result.byUser).forEach(u => {
+                const s = u.stats;
+                const fromGames = s.wins * HONOR_FOR.win + s.highScores * HONOR_FOR.highScore + s.berths * HONOR_FOR.playoffBerth +
+                    s.titleGames * HONOR_FOR.titleGame + s.titles * HONOR_FOR.title + s.potWins * HONOR_FOR.potWin;
+                const fromBadges = u.badges.reduce((sum, b) => sum + TIER_HONOR[BADGE_BY_KEY[b.key].tier], 0);
+                u.honor = fromGames + fromBadges;
+                u.honorParts = { fromGames, fromBadges };
+                Object.assign(u, rankFor(u.honor, s.potWins));
+                const tierOrder = { legendary: 0, rare: 1, common: 2, shame: 3 };
+                const counts = {};
+                u.badges.forEach(b => { counts[b.key] = (counts[b.key] || 0) + 1; });
+                u.badgeCounts = counts;
+                u.topBadges = Object.keys(counts).filter(k => BADGE_BY_KEY[k].tier !== 'shame')
+                    .sort((a, b) => tierOrder[BADGE_BY_KEY[a].tier] - tierOrder[BADGE_BY_KEY[b].tier] || counts[b] - counts[a]).slice(0, 3);
+            });
+            return result;
+        }
+        
+        async function loadHonors() {
+            const run = ++honorsExtrasRun;
+            honors = finishHonors(computeGameHonors());
+            showHonors();
+            try {
+                await new Promise(resolve => setTimeout(resolve, 1200)); // let the page settle first
+                if (run !== honorsExtrasRun) return;
+                const full = finishHonors(await addExtraHonors(computeGameHonors()));
+                if (run !== honorsExtrasRun) return;
+                honors = full;
+                showHonors();
+            } catch (error) {
+                console.error('Honors (trades, lineups, drafts) error:', error);
+            }
+        }
+        
+        // Everywhere honors appear: leaderboard, New Honors, Badge Hall, an open profile
+        function showHonors() {
+            if (!honors) return;
+            document.querySelectorAll('.leaderboard-table tr[data-user-id]').forEach(row => {
+                const u = honors.byUser[row.dataset.userId];
+                const cell = row.querySelector('td[data-label="Team"]');
+                if (!u || !cell) return;
+                cell.querySelector('.lb-honors')?.remove();
+                cell.insertAdjacentHTML('beforeend', `<span class="lb-honors"><span class="rank-chip" title="${u.rank.name} · ${u.honor.toLocaleString()} honor">${u.rank.kanji}</span>${u.ronin ? '<span class="ronin-chip" title="Rōnin: on a losing streak">浪人</span>' : ''}${u.topBadges.map(k => seal(BADGE_BY_KEY[k], 'mini')).join('')}</span>`);
+            });
+            renderNewHonors();
+            renderHallOfShoguns();
+            const open = document.getElementById('profileBody');
+            if (open?.dataset.userId) open.innerHTML = renderProfile(open.dataset.userId);
+        }
+        
+        function renderNewHonors() {
+            const section = document.getElementById('honorsSection');
+            const entry = leagueArchive[leagueArchive.length - 1];
+            if (!section || !honors || !entry) return;
+            const week = entry.lastFinishedWeek;
+            const fresh = Object.values(honors.byUser).flatMap(u => u.badges.filter(b => b.season === entry.season && b.week === week).map(b => ({ u, b })));
+            if (entry.league.status !== 'in_season' || !fresh.length) { section.hidden = true; return; }
+            document.getElementById('honorsTitle').textContent = `Week ${week} New Honors`;
+            document.getElementById('honorsContent').innerHTML = `<ul class="honor-feed">${fresh.map(({ u, b }) => {
+                const badge = BADGE_BY_KEY[b.key];
+                const team = teamInfo(u.userId);
+                return `<li>${seal(badge, 'small')}<span><strong>${escapeHTML(team.name)}</strong> earned <strong>${escapeHTML(badge.name)}</strong>${b.detail ? ` · ${escapeHTML(b.detail)}` : ''}</span></li>`;
+            }).join('')}</ul>`;
+            section.hidden = false;
+        }
+        
+        function renderProfile(userId) {
+            if (!honors) return '<div class="loading"><div class="spinner"></div><p>Tallying honors...</p></div>';
+            const u = honors.byUser[userId];
+            if (!u) return '<p class="section-note">No history for this team yet.</p>';
+            const s = u.stats;
+            const progress = u.next ? Math.min(100, (u.honor - u.rank.honor) / (u.next.honor - u.rank.honor) * 100) : 100;
+            const odds = potOddsCache?.now?.[userId];
+            const families = BADGE_FAMILIES.map(family => `
+                <div class="badge-family">
+                    <h4>${family}</h4>
+                    <div class="badge-case">${BADGES.filter(b => b.family === family).map(b => {
+                        const count = u.badgeCounts[b.key] || 0;
+                        return `<div class="badge-slot ${count ? '' : 'locked'}">${seal(b, '', count)}<span>${escapeHTML(b.name)}</span></div>`;
+                    }).join('')}</div>
+                </div>
+            `).join('');
+            return `
+                <div class="profile-rank">
+                    <span class="rank-seal">${u.rank.kanji}</span>
+                    <div class="profile-rank-info">
+                        <span class="profile-rank-name">${u.rank.name}${u.ronin ? ' <span class="ronin-chip">浪人 Rōnin</span>' : ''}</span>
+                        <span class="profile-honor">${u.honor.toLocaleString()} honor${u.next ? ` · ${(u.next.honor - u.honor).toLocaleString()} to ${u.next.name}` : ' · highest rank'}</span>
+                        <span class="honor-bar"><span style="width: ${progress.toFixed(1)}%"></span></span>
+                    </div>
+                </div>
+                <div class="roster-summary">
+                    <div><span class="roster-summary-label">Record</span><span class="roster-summary-value">${s.wins}–${s.losses}${s.ties ? `–${s.ties}` : ''}</span></div>
+                    <div><span class="roster-summary-label">Titles</span><span class="roster-summary-value">${s.titles}</span></div>
+                    <div><span class="roster-summary-label">${odds != null ? 'Pot odds' : 'Playoff trips'}</span><span class="roster-summary-value">${odds != null ? formatOdds(odds) : s.berths}</span></div>
+                </div>
+                <p class="section-note">${s.seasons.size} season${s.seasons.size === 1 ? '' : 's'} · ${s.berths} playoff trip${s.berths === 1 ? '' : 's'} · ${s.highScores} weekly high scores · ${u.badges.length} badge${u.badges.length === 1 ? '' : 's'} earned${honors.ready === 'games' ? ' · trade, lineup and draft badges still loading' : ''}</p>
+                ${families}
+                <p class="race-footnote">Honor: ${HONOR_FOR.win} per win, ${HONOR_FOR.highScore} per weekly high score, ${HONOR_FOR.playoffBerth} per playoff trip, ${HONOR_FOR.titleGame} per title game, ${HONOR_FOR.title} per title, ${HONOR_FOR.potWin} per pot, plus ${TIER_HONOR.common}/${TIER_HONOR.rare}/${TIER_HONOR.legendary} per common/rare/legendary badge. Shame badges are free.</p>
+            `;
+        }
+        
+        // The key to the whole system: ranks, tiers and how honor is earned
+        function renderHonorGuide() {
+            const sample = { common: 'blowout', rare: 'juggernaut', legendary: 'champion', shame: 'spoon' };
+            const tierInfo = {
+                common: 'Ink rim. Everyday feats.',
+                rare: 'Silver rim. Hard to pull off.',
+                legendary: 'Gold rim. League history.',
+                shame: 'Cracked seal. Bragging rights for everyone else.'
+            };
+            return `
+                <div class="honor-guide">
+                    <h3 class="roster-group-title">How Honor Works</h3>
+                    <p class="section-note">Managers earn honor over their whole career, every season and every pot. Enough honor raises your rank. Click any team to see its profile and badge case.</p>
+                    <div class="guide-ranks">${RANKS.map(r => `
+                        <div class="guide-rank"><span class="guide-rank-kanji">${r.kanji}</span><strong>${r.name}</strong><span>${r.honor ? `${r.honor.toLocaleString()} honor` : 'Starting rank'}${r === RANKS[RANKS.length - 1] ? ' or a pot win' : ''}</span></div>
+                    `).join('')}</div>
+                    <div class="guide-cols">
+                        <div>
+                            <h4>Badge tiers</h4>
+                            <ul class="guide-tiers">${Object.keys(sample).map(tier => `
+                                <li>${seal(BADGE_BY_KEY[sample[tier]], 'small')}<span><strong>${tier[0].toUpperCase() + tier.slice(1)} · ${TIER_HONOR[tier] ? `+${TIER_HONOR[tier]} honor` : 'no honor'}</strong>${tierInfo[tier]}</span></li>
+                            `).join('')}</ul>
+                        </div>
+                        <div>
+                            <h4>Honor from results</h4>
+                            <ul class="guide-points">
+                                <li><span>Win</span><strong>+${HONOR_FOR.win}</strong></li>
+                                <li><span>Weekly high score</span><strong>+${HONOR_FOR.highScore}</strong></li>
+                                <li><span>Playoff trip</span><strong>+${HONOR_FOR.playoffBerth}</strong></li>
+                                <li><span>Title game</span><strong>+${HONOR_FOR.titleGame}</strong></li>
+                                <li><span>Title</span><strong>+${HONOR_FOR.title}</strong></li>
+                                <li><span>5-year pot</span><strong>+${HONOR_FOR.potWin}</strong></li>
+                            </ul>
+                            <p class="guide-ronin"><span class="ronin-chip">浪人</span> Rōnin: shown while a manager is on a 5+ game losing streak. It goes away with the next win.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Tap or click any seal anywhere: a small card with what it is, how to earn it, and who has it
+        function showBadgeCard(sealEl) {
+            closeBadgeCard();
+            const badge = BADGE_BY_KEY[sealEl.dataset.badge];
+            if (!badge) return;
+            const holders = honors ? Object.values(honors.byUser).filter(u => u.badgeCounts?.[badge.key]).sort((a, b) => b.badgeCounts[badge.key] - a.badgeCounts[badge.key]) : [];
+            const card = document.createElement('div');
+            card.className = 'badge-card';
+            card.id = 'badgeCard';
+            card.setAttribute('role', 'dialog');
+            card.setAttribute('aria-label', badge.name);
+            card.innerHTML = `
+                <button type="button" class="buddy-close" aria-label="Close" onclick="closeBadgeCard()">✕</button>
+                <div class="badge-card-head">${seal(badge)}<div><strong>${escapeHTML(badge.name)}</strong><span>${badge.family} · ${badge.tier[0].toUpperCase() + badge.tier.slice(1)}${TIER_HONOR[badge.tier] ? ` · +${TIER_HONOR[badge.tier]} honor` : ' · no honor'}</span></div></div>
+                <p>${escapeHTML(badge.desc)}.</p>
+                <div class="badge-card-holders">${holders.length
+                    ? holders.map(u => `<span class="team-label">${avatarImg(teamInfo(u.userId).avatar)}<span>${escapeHTML(teamInfo(u.userId).name)}${u.badgeCounts[badge.key] > 1 ? ` ×${u.badgeCounts[badge.key]}` : ''}</span></span>`).join('')
+                    : '<em>Nobody has earned this yet.</em>'}</div>
+            `;
+            // Inside the team panel the card must live in the dialog, or the dialog would cover it
+            (sealEl.closest('dialog') || document.body).appendChild(card);
+            const box = sealEl.getBoundingClientRect();
+            const width = Math.min(300, window.innerWidth - 24);
+            card.style.width = `${width}px`;
+            const left = Math.min(Math.max(12, box.left + box.width / 2 - width / 2), window.innerWidth - width - 12);
+            const below = box.bottom + 10;
+            card.style.left = `${left}px`;
+            card.style.top = `${below + card.offsetHeight > window.innerHeight - 12 ? Math.max(12, box.top - card.offsetHeight - 10) : below}px`;
+        }
+        
+        function closeBadgeCard() {
+            document.getElementById('badgeCard')?.remove();
+        }
+        
+        // Capture phase, so tapping a seal in a leaderboard row doesn't also open that team
+        document.addEventListener('click', event => {
+            const sealEl = event.target.closest('.seal[data-badge]');
+            if (sealEl) {
+                event.stopPropagation();
+                event.preventDefault();
+                showBadgeCard(sealEl);
+            } else if (!event.target.closest('#badgeCard')) {
+                closeBadgeCard();
+            }
+        }, true);
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeBadgeCard();
+            const sealEl = event.target.closest?.('.seal[data-badge]');
+            if (sealEl && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); showBadgeCard(sealEl); }
+        });
+        window.addEventListener('scroll', closeBadgeCard, { passive: true });
+        
+        function renderBadgeHall() {
+            if (!honors) return '';
+            const holders = key => Object.values(honors.byUser).filter(u => u.badgeCounts?.[key]).sort((a, b) => b.badgeCounts[key] - a.badgeCounts[key]);
+            const rows = BADGES.map(b => ({ b, holders: holders(b.key), total: Object.values(honors.byUser).reduce((t, u) => t + (u.badgeCounts?.[b.key] || 0), 0) }))
+                .sort((a, b) => (a.total === 0) - (b.total === 0) || a.total - b.total);
+            return `
+                <div class="stat-section">
+                    <h2 class="section-title">Badge Hall</h2>
+                    ${renderHonorGuide()}
+                    <h3 class="roster-group-title" style="margin-top: 22px;">Every Badge</h3>
+                    <p class="section-note">Rarest first. Tap any seal for details.${honors.ready === 'games' ? ' Trade, lineup and draft badges are still loading.' : ''}</p>
+                    <ul class="badge-hall">${rows.map(({ b, holders: hs, total }) => `
+                        <li class="${total ? '' : 'locked'}">
+                            ${seal(b)}
+                            <span class="badge-hall-info"><strong>${escapeHTML(b.name)}</strong><span>${escapeHTML(b.desc)} · ${b.tier}</span></span>
+                            <span class="badge-hall-holders">${hs.length ? hs.map(u => `<span title="${escapeHTML(teamInfo(u.userId).name)} ×${u.badgeCounts[b.key]}">${avatarImg(teamInfo(u.userId).avatar)}${u.badgeCounts[b.key] > 1 ? `<small>×${u.badgeCounts[b.key]}</small>` : ''}</span>`).join('') : '<em>Unclaimed</em>'}</span>
+                        </li>
+                    `).join('')}</ul>
+                </div>
+            `;
+        }
+
         // ==================== SUBTABS ====================
         //
         // Each main tab shows one group of sections at a time. Groups come from section titles, so sections
@@ -8875,7 +9787,9 @@
         const SUBTAB_RULES = [
             [/^War Room$/, null],                       // header with the team picker: always visible
             [/Power Rankings$/, 'Power Rankings'],
+            [/New Honors$/, 'This Week'],
             [/^Week \d+|Recap$|^This Week/, 'This Week'],
+            [/^Badge Hall$/, 'Badge Hall'],
             [/^Dynasty Leaderboard$/, 'Leaderboard'],
             [/^The Road to/, 'Overview'],
             [/^Pot Odds$/, 'Pot Odds'],
