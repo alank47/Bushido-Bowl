@@ -4150,8 +4150,8 @@
             <p id="shareHint" class="section-note share-hint" hidden>Tip: press and hold the card to save it to Photos or share it.</p>
             <p id="shareStatus" class="section-note" role="status"></p>
             <div class="share-actions">
-                <button type="button" onclick="shareNow()">Share</button>
-                <button type="button" class="secondary-action" onclick="downloadShare()">Download</button>
+                <button type="button" id="shareNowBtn" onclick="shareNow()">Share</button>
+                <button type="button" id="shareDownloadBtn" class="secondary-action" onclick="downloadShare()">Download</button>
                 <button type="button" class="secondary-action" id="shareCopyBtn" onclick="copyShare()">Copy</button>
             </div>
         </div>
@@ -10366,7 +10366,13 @@
             const dialog = document.getElementById('shareDialog');
             // Copying images only works on desktop browsers, so hide it where it can't
             document.getElementById('shareCopyBtn').hidden = !(window.ClipboardItem && navigator.clipboard?.write) || canTouch();
-            document.getElementById('shareHint').hidden = !canTouch();
+            // Browsers without the share menu (Firefox, most in-app browsers) get press-and-hold plus Download instead
+            const canShareMenu = canShareFiles();
+            const hint = document.getElementById('shareHint');
+            hint.hidden = !canTouch();
+            hint.textContent = canShareMenu ? 'Tip: press and hold the card to save it to Photos or share it.' : 'Press and hold the card to save or share it.';
+            document.getElementById('shareNowBtn').hidden = !canShareMenu;
+            document.getElementById('shareDownloadBtn').classList.toggle('secondary-action', canShareMenu);
             if (!dialog.open) dialog.showModal();
             document.querySelectorAll('#shareDialog .share-size .subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.size === 'portrait'));
             await drawShare();
@@ -10420,6 +10426,14 @@
                 if (e.name === 'AbortError') return;   // closed the share sheet
                 downloadShare();
                 status.textContent = 'Couldn’t open the share menu, so the card was saved instead.';
+            }
+        }
+        
+        function canShareFiles() {
+            try {
+                return !!(navigator.canShare && navigator.canShare({ files: [new File([''], 'card.png', { type: 'image/png' })] }));
+            } catch (e) {
+                return false;
             }
         }
         
