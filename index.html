@@ -8949,6 +8949,15 @@
                 return pool.reduce((a, b) => (Math.hypot(P[b].cx - tx, P[b].cy - ty) < Math.hypot(P[a].cx - tx, P[a].cy - ty) ? b : a));
             };
             const conquer = (own, events, winId, loseId, type, extra = {}) => {
+                // Rōnin uprising: a fallen clan's first land back is its own old capital, from whoever holds it
+                const home = capitals[clan[winId]];
+                if (!own.includes(clan[winId]) && home != null && own[home] >= 0) {
+                    const holder = teams[own[home]];
+                    own[home] = clan[winId];
+                    const event = { province: home, from: holder, beat: loseId, to: winId, type: 'uprising', via: type, fell: !own.includes(teams.indexOf(holder)), ...extra };
+                    events.push(event); history[home].push(event);
+                    return true;
+                }
                 const k = take(clan[winId], clan[loseId], own, { capital: type === 'capital' });
                 if (k == null) return false;
                 own[k] = clan[winId];
@@ -9211,6 +9220,7 @@
                         <li><strong>Win by ${MAP_RULES.routMargin}+</strong> and it's a rout: you take ${MAP_RULES.routTake}.</li>
                         <li><strong>Top score of the week</strong> raids one more province from the week's lowest scorer.</li>
                         <li><strong>Playoff wins</strong> take a province. The <strong>title game</strong> takes the loser's capital, and the champion seizes <strong>Kyoto</strong> (京).</li>
+                        <li><strong>Rōnin uprising:</strong> a fallen clan's first land back is its own old capital, retaken from whoever holds it, even a team it didn't play.</li>
                         <li><strong>Great castles:</strong> hold Kyoto (京), Edo/Tokyo (江) or Osaka (坂) when the regular season ends to earn a Lord badge.</li>
                         <li><strong>Badges:</strong> Unifier (hold a quarter of Japan), Iron Castle (lose 2 or fewer provinces all regular season), Comeback (win land back after falling) and the shameful Fallen Clan, each at most once a season.</li>
                     </ul>
@@ -9289,6 +9299,10 @@
             const place = `<strong>${escapeHTML(provinceLabel(e.province))}</strong>`;
             const capital = e.fell ? ', their capital' : '';
             switch (e.type) {
+                case 'uprising': {
+                    const how = e.via === 'raid' ? `posted the week's top score` : `beat ${name(e.beat)}${e.score ? ` (${e.score})` : ''}`;
+                    return `<strong>Rōnin uprising!</strong> <strong>${name(e.to)}</strong> ${how} and retook their old capital, ${place}, from ${name(e.from)}${e.fell ? `, who fell with it` : ''}.`;
+                }
                 case 'title': return `<strong>${name(e.to)}</strong> won the ${e.season} title and seized <strong>Kyoto</strong>${e.from ? ` from ${name(e.from)}` : ''}.`;
                 case 'capital': return `<strong>${name(e.to)}</strong> won the title game (${e.score}) and took ${name(e.from)}'s capital, ${place}.`;
                 case 'rout': return `<strong>${name(e.to)}</strong> routed ${name(e.from)} (${e.score}) and took ${place}${capital}.`;
