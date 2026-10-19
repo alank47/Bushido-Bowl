@@ -2055,6 +2055,155 @@
             .odds-track { grid-area: track; height: 12px; }
         }
 
+        /* ---------- Shogunate Map ---------- */
+        .map-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+            gap: 24px;
+            align-items: start;
+            margin-top: 12px;
+        }
+
+        .map-frame {
+            position: relative;
+        }
+
+        #shogunMap {
+            display: block;
+            width: 100%;
+            height: auto;
+            border: 1.5px solid var(--sumi);
+            border-radius: 4px;
+            box-shadow: 0 0 0 5px var(--card), 0 0 0 6.5px var(--line);
+            touch-action: manipulation;
+        }
+
+        .map-hover {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 10px;
+            background: var(--sumi);
+            color: var(--card);
+            font-size: 0.8rem;
+            border-radius: 3px;
+            pointer-events: none;
+        }
+
+        .map-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .map-play {
+            flex: none;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+            font-size: 0.9rem;
+        }
+
+        .map-controls input[type="range"] {
+            flex: 1;
+            min-width: 0;
+            accent-color: var(--shu);
+        }
+
+        .map-step-label {
+            flex: none;
+            min-width: 120px;
+            text-align: right;
+            font-family: var(--font-display);
+            font-weight: 700;
+        }
+
+        .map-province {
+            padding: 14px 16px;
+            background: var(--washi-deep);
+            border-left: 3px solid var(--kin);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .map-province-name {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .map-province-meta {
+            font-size: 0.85rem;
+            color: var(--sumi-soft);
+            margin: 2px 0 8px;
+        }
+
+        .map-province-history,
+        .map-events {
+            list-style: none;
+            display: grid;
+            gap: 6px;
+            font-size: 0.88rem;
+        }
+
+        .map-quiet {
+            color: var(--sumi-soft);
+            font-size: 0.88rem;
+            margin: 0;
+        }
+
+        .map-clans {
+            list-style: none;
+        }
+
+        .map-clans li {
+            display: grid;
+            grid-template-columns: 10px 1fr auto;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 0;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .map-clans li.is-you .race-team-name {
+            color: var(--shu);
+        }
+
+        .clan-swatch {
+            width: 10px;
+            height: 26px;
+            border-radius: 2px;
+        }
+
+        .clan-count {
+            font-family: var(--font-display);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .clan-count em {
+            font-style: normal;
+            font-size: 0.8rem;
+            color: var(--shu);
+        }
+
+        .clan-kyoto {
+            display: inline-block;
+            padding: 0 4px;
+            background: var(--kin);
+            color: var(--sumi);
+            border-radius: 2px;
+            font-family: var(--font-brush);
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 900px) {
+            .map-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* ---------- Path to the Pot & Sliding Doors ---------- */
         .path-headline {
             font-family: var(--font-display);
@@ -4078,6 +4227,12 @@
                 <div id="powerContent"></div>
             </div>
 
+            <!-- Shogunate Map: territory won and lost in every game of the pot -->
+            <div class="stat-section" id="mapSection" hidden>
+                <h2 class="section-title">Shogunate Map</h2>
+                <div id="mapContent"></div>
+            </div>
+
             <!-- Leaderboard -->
             <div class="leaderboard-section">
                 <div class="section-title">Dynasty Leaderboard</div>
@@ -4502,6 +4657,8 @@
             requestCache = {};
             potOddsCache = null;
             doorsData = null;
+            mapHistory = null;
+            if (mapTimer) { clearInterval(mapTimer); mapTimer = null; }
             pathTeam = null;
             doorsTeam = null;
             leaderboardReady = false;
@@ -4976,6 +5133,7 @@
                 loadMikeRecap(race);
                 leaderboardReady = true;
                 renderPowerRankings();
+                renderShogunateMap();
                 loadHonors();
                 if (document.getElementById('warTab')?.classList.contains('active')) loadWarRoom();
                 if (document.getElementById('tradesTab')?.classList.contains('active')) loadTradeReport();
@@ -8533,6 +8691,483 @@
             }
         }
 
+        // ==================== SHOGUNATE MAP ====================
+        //
+        // Japan's old provinces, split evenly between the clans when the pot began. Every regular-season win takes a
+        // province from the team you beat (one on your border if there is one), and each season's champion seizes
+        // Kyōto. Everything is replayed from real scores, so the map redraws itself every week.
+
+        // Rough coastlines as [longitude, latitude]. Island ids: 1 Hokkaidō, 2 Honshū, 3 Shikoku, 4 Kyūshū, 5+ small islands
+        const MAP_ISLANDS = {
+            1: [[140.0,41.4],[140.6,41.7],[141.2,41.8],[140.95,42.2],[141.0,42.4],[141.7,42.6],[142.5,42.2],[143.3,41.9],[143.6,42.6],[144.4,42.95],[145.3,43.1],[145.8,43.4],[145.2,43.6],[145.3,44.3],[144.3,44.0],[143.4,44.3],[142.6,44.8],[141.95,45.5],[141.6,45.2],[141.75,44.4],[141.35,43.8],[141.3,43.2],[140.4,43.3],[140.4,42.9],[139.85,42.6],[140.1,42.2]],
+            2: [[140.35,41.25],[140.9,41.55],[141.45,41.4],[141.5,40.6],[142.0,39.9],[142.07,39.5],[141.6,38.9],[141.5,38.3],[141.0,38.3],[141.0,37.5],[140.9,36.9],[140.6,36.4],[140.85,35.75],[140.4,35.2],[139.85,34.9],[139.85,35.3],[140.05,35.6],[139.7,35.3],[139.15,35.25],[138.85,34.6],[138.75,35.1],[138.3,34.65],[137.6,34.65],[137.0,34.6],[136.85,34.95],[136.85,34.3],[136.3,34.1],[135.8,33.45],[135.1,33.9],[135.2,34.35],[135.4,34.65],[134.6,34.7],[134.0,34.6],[133.3,34.4],[132.6,34.25],[132.2,33.9],[131.6,33.95],[131.0,34.0],[130.9,34.35],[131.4,34.45],[131.85,34.7],[132.7,35.45],[133.3,35.55],[134.2,35.55],[135.2,35.75],[135.5,35.5],[136.0,35.7],[136.05,36.2],[136.6,36.6],[136.7,37.0],[136.9,37.4],[137.3,37.5],[137.0,36.85],[137.5,36.85],[138.2,37.15],[138.9,37.85],[139.5,38.4],[139.8,38.95],[140.0,39.6],[139.7,39.95],[140.0,40.25],[139.9,40.6]],
+            3: [[132.0,33.35],[132.6,33.85],[133.0,34.05],[133.5,34.0],[134.05,34.35],[134.6,34.2],[134.7,33.85],[134.2,33.25],[133.6,33.5],[133.0,32.75],[132.5,32.9],[132.4,33.3]],
+            4: [[130.95,33.92],[131.3,33.6],[131.7,33.3],[131.9,32.85],[131.5,32.4],[131.4,31.6],[131.1,31.3],[130.7,31.0],[130.5,31.4],[130.2,31.25],[130.3,31.9],[130.15,32.2],[130.5,32.6],[130.3,32.85],[130.2,32.6],[129.75,32.6],[129.6,33.0],[129.9,33.45],[130.4,33.65]]
+        };
+        // Small islands as ellipses: [lon, lat, radius lon, radius lat]
+        const MAP_ISLETS = { 5: [138.4, 38.05, 0.27, 0.2], 6: [134.83, 34.42, 0.12, 0.2], 7: [133.2, 36.2, 0.17, 0.13], 8: [129.72, 33.79, 0.1, 0.09], 9: [129.32, 34.4, 0.1, 0.3] };
+
+        // [name, region, lon, lat, island]
+        const MAP_PROVINCES = [
+            ['Yamashiro', 'Kinai', 135.75, 35.0, 2], ['Yamato', 'Kinai', 135.85, 34.45, 2], ['Kawachi', 'Kinai', 135.62, 34.62, 2], ['Izumi', 'Kinai', 135.42, 34.42, 2], ['Settsu', 'Kinai', 135.4, 34.8, 2],
+            ['Iga', 'Tōkaidō', 136.15, 34.75, 2], ['Ise', 'Tōkaidō', 136.45, 34.7, 2], ['Shima', 'Tōkaidō', 136.8, 34.35, 2], ['Owari', 'Tōkaidō', 136.85, 35.2, 2], ['Mikawa', 'Tōkaidō', 137.35, 34.9, 2],
+            ['Tōtōmi', 'Tōkaidō', 137.85, 34.8, 2], ['Suruga', 'Tōkaidō', 138.35, 35.1, 2], ['Izu', 'Tōkaidō', 138.95, 34.9, 2], ['Kai', 'Tōkaidō', 138.6, 35.65, 2], ['Sagami', 'Tōkaidō', 139.3, 35.4, 2],
+            ['Musashi', 'Tōkaidō', 139.5, 35.9, 2], ['Awa', 'Tōkaidō', 139.95, 35.05, 2], ['Kazusa', 'Tōkaidō', 140.2, 35.35, 2], ['Shimōsa', 'Tōkaidō', 140.2, 35.8, 2], ['Hitachi', 'Tōkaidō', 140.35, 36.45, 2],
+            ['Ōmi', 'Tōsandō', 136.1, 35.15, 2], ['Mino', 'Tōsandō', 136.85, 35.6, 2], ['Hida', 'Tōsandō', 137.25, 36.15, 2], ['Shinano', 'Tōsandō', 138.1, 36.15, 2], ['Kōzuke', 'Tōsandō', 139.0, 36.5, 2],
+            ['Shimotsuke', 'Tōsandō', 139.8, 36.6, 2], ['Iwaki', 'Tōsandō', 140.75, 37.2, 2], ['Iwashiro', 'Tōsandō', 140.0, 37.5, 2], ['Rikuzen', 'Tōsandō', 141.0, 38.5, 2], ['Rikuchū', 'Tōsandō', 141.4, 39.6, 2],
+            ['Mutsu', 'Tōsandō', 141.0, 40.7, 2], ['Uzen', 'Tōsandō', 140.1, 38.4, 2], ['Ugo', 'Tōsandō', 140.3, 39.6, 2],
+            ['Wakasa', 'Hokurikudō', 135.8, 35.45, 2], ['Echizen', 'Hokurikudō', 136.25, 35.95, 2], ['Kaga', 'Hokurikudō', 136.55, 36.35, 2], ['Noto', 'Hokurikudō', 136.9, 37.05, 2], ['Etchū', 'Hokurikudō', 137.2, 36.65, 2],
+            ['Echigo', 'Hokurikudō', 138.7, 37.4, 2], ['Sado', 'Hokurikudō', 138.4, 38.05, 5],
+            ['Tanba', "San'indō", 135.35, 35.2, 2], ['Tango', "San'indō", 135.15, 35.6, 2], ['Tajima', "San'indō", 134.75, 35.4, 2], ['Inaba', "San'indō", 134.25, 35.4, 2], ['Hōki', "San'indō", 133.55, 35.35, 2],
+            ['Izumo', "San'indō", 132.85, 35.3, 2], ['Iwami', "San'indō", 132.1, 34.75, 2], ['Oki', "San'indō", 133.2, 36.2, 7],
+            ['Harima', "San'yōdō", 134.75, 34.95, 2], ['Mimasaka', "San'yōdō", 134.0, 35.1, 2], ['Bizen', "San'yōdō", 134.05, 34.75, 2], ['Bitchū', "San'yōdō", 133.6, 34.8, 2], ['Bingo', "San'yōdō", 133.15, 34.7, 2],
+            ['Aki', "San'yōdō", 132.5, 34.5, 2], ['Suō', "San'yōdō", 131.85, 34.1, 2], ['Nagato', "San'yōdō", 131.2, 34.25, 2],
+            ['Kii', 'Nankaidō', 135.6, 33.9, 2], ['Awaji', 'Nankaidō', 134.83, 34.42, 6], ['Awa (Shikoku)', 'Nankaidō', 134.3, 33.9, 3], ['Sanuki', 'Nankaidō', 133.95, 34.2, 3], ['Iyo', 'Nankaidō', 132.8, 33.6, 3], ['Tosa', 'Nankaidō', 133.3, 33.4, 3],
+            ['Chikuzen', 'Saikaidō', 130.6, 33.6, 4], ['Chikugo', 'Saikaidō', 130.6, 33.25, 4], ['Buzen', 'Saikaidō', 131.05, 33.6, 4], ['Bungo', 'Saikaidō', 131.5, 33.1, 4], ['Hizen', 'Saikaidō', 130.0, 33.15, 4],
+            ['Higo', 'Saikaidō', 130.8, 32.6, 4], ['Hyūga', 'Saikaidō', 131.3, 32.2, 4], ['Ōsumi', 'Saikaidō', 130.9, 31.45, 4], ['Satsuma', 'Saikaidō', 130.35, 31.6, 4], ['Iki', 'Saikaidō', 129.72, 33.79, 8], ['Tsushima', 'Saikaidō', 129.32, 34.4, 9],
+            ['Oshima', 'Hokkaidō', 140.4, 41.8, 1], ['Shiribeshi', 'Hokkaidō', 140.6, 42.85, 1], ['Iburi', 'Hokkaidō', 141.3, 42.65, 1], ['Ishikari', 'Hokkaidō', 141.7, 43.4, 1], ['Teshio', 'Hokkaidō', 141.95, 44.6, 1],
+            ['Kitami', 'Hokkaidō', 143.4, 44.0, 1], ['Hidaka', 'Hokkaidō', 142.7, 42.4, 1], ['Tokachi', 'Hokkaidō', 143.2, 42.9, 1], ['Kushiro', 'Hokkaidō', 144.2, 43.3, 1], ['Nemuro', 'Hokkaidō', 144.9, 43.5, 1], ['Chishima', 'Hokkaidō', 145.5, 43.35, 1]
+        ];
+        // Provinces that face each other across a strait
+        const MAP_SEA_LINKS = [['Sado', 'Echigo'], ['Awaji', 'Settsu'], ['Awaji', 'Harima'], ['Awaji', 'Awa (Shikoku)'], ['Oki', 'Izumo'], ['Oki', 'Hōki'], ['Iki', 'Hizen'], ['Iki', 'Chikuzen'], ['Tsushima', 'Iki'],
+            ['Sanuki', 'Bizen'], ['Iyo', 'Aki'], ['Iyo', 'Suō'], ['Awa (Shikoku)', 'Kii'], ['Buzen', 'Nagato'], ['Chikuzen', 'Nagato'], ['Bungo', 'Iyo'], ['Oshima', 'Mutsu']];
+        const MAP_KYOTO = 'Yamashiro';
+        const MAP_W = 720, MAP_LON0 = 128.9, MAP_LAT0 = 45.75, MAP_COS = Math.cos(36 * Math.PI / 180);
+        const MAP_SCALE = MAP_W / ((146.1 - MAP_LON0) * MAP_COS);
+        const MAP_H = Math.round((MAP_LAT0 - 30.75) * MAP_SCALE);
+        const CLAN_COLORS = ['#b3362b', '#2f4a6d', '#3d6b4c', '#c9a24f', '#6b4c7a', '#8a5a3b', '#4f8a86', '#c98a8f', '#5a5550', '#d07a3a', '#8a8a3c', '#6f9bc2'];
+
+        const mapProject = (lon, lat) => [(lon - MAP_LON0) * MAP_COS * MAP_SCALE, (MAP_LAT0 - lat) * MAP_SCALE];
+
+        let mapGeo = null;      // province raster, centroids and neighbors (built once)
+        let mapHistory = null;  // every step of the conquest for this league
+        let mapStep = null;
+        let mapSelected = null;
+        let mapTimer = null;
+
+        function traceIslands(ctx, scale = 1) {
+            Object.values(MAP_ISLANDS).forEach(points => {
+                ctx.beginPath();
+                points.forEach(([lon, lat], i) => { const [x, y] = mapProject(lon, lat); ctx[i ? 'lineTo' : 'moveTo'](x * scale, y * scale); });
+                ctx.closePath();
+            });
+        }
+
+        function islandPath(ctx, id, scale = 1) {
+            ctx.beginPath();
+            if (MAP_ISLANDS[id]) {
+                MAP_ISLANDS[id].forEach(([lon, lat], i) => { const [x, y] = mapProject(lon, lat); ctx[i ? 'lineTo' : 'moveTo'](x * scale, y * scale); });
+                ctx.closePath();
+            } else {
+                const [lon, lat, rx, ry] = MAP_ISLETS[id];
+                const [x, y] = mapProject(lon, lat);
+                ctx.ellipse(x * scale, y * scale, rx * MAP_COS * MAP_SCALE * scale, ry * MAP_SCALE * scale, 0, 0, Math.PI * 2);
+            }
+        }
+
+        // Rasterize the islands, then give every land pixel to the nearest province seed on the same island
+        function buildMapGeo() {
+            if (mapGeo) return mapGeo;
+            const W = MAP_W, H = MAP_H;
+            const mask = document.createElement('canvas');
+            mask.width = W; mask.height = H;
+            const mctx = mask.getContext('2d', { willReadFrequently: true });
+            const islandIds = [...Object.keys(MAP_ISLANDS), ...Object.keys(MAP_ISLETS)].map(Number);
+            islandIds.forEach(id => { mctx.fillStyle = `rgb(${id * 20},0,0)`; islandPath(mctx, id); mctx.fill(); });
+            const px = mctx.getImageData(0, 0, W, H).data;
+
+            const seeds = MAP_PROVINCES.map(([name, region, lon, lat, island]) => { const [x, y] = mapProject(lon, lat); return { name, region, x, y, island }; });
+            const byIsland = {};
+            seeds.forEach((s, i) => { (byIsland[s.island] = byIsland[s.island] || []).push(i); });
+            const grid = new Int16Array(W * H).fill(-1);
+            const sumX = new Float64Array(seeds.length), sumY = new Float64Array(seeds.length), area = new Int32Array(seeds.length);
+            for (let y = 0; y < H; y++) {
+                for (let x = 0; x < W; x++) {
+                    const o = (y * W + x) * 4;
+                    if (px[o + 3] < 128) continue;
+                    const list = byIsland[Math.round(px[o] / 20)];
+                    if (!list) continue;
+                    let best = list[0], bestD = Infinity;
+                    for (const i of list) { const dx = seeds[i].x - x, dy = seeds[i].y - y, d = dx * dx + dy * dy; if (d < bestD) { bestD = d; best = i; } }
+                    grid[y * W + x] = best;
+                    sumX[best] += x; sumY[best] += y; area[best]++;
+                }
+            }
+            // Neighbors: touching pixels, plus straits
+            const neighbors = seeds.map(() => new Set());
+            for (let y = 0; y < H - 1; y++) {
+                for (let x = 0; x < W - 1; x++) {
+                    const a = grid[y * W + x];
+                    if (a < 0) continue;
+                    const r = grid[y * W + x + 1], d = grid[(y + 1) * W + x];
+                    if (r >= 0 && r !== a) { neighbors[a].add(r); neighbors[r].add(a); }
+                    if (d >= 0 && d !== a) { neighbors[a].add(d); neighbors[d].add(a); }
+                }
+            }
+            const index = name => seeds.findIndex(s => s.name === name);
+            MAP_SEA_LINKS.forEach(([a, b]) => { neighbors[index(a)].add(index(b)); neighbors[index(b)].add(index(a)); });
+
+            // Paper grain, fixed so it doesn't shimmer between redraws
+            const grain = new Float32Array(W * H);
+            const rng = seededRandom(1185);
+            for (let i = 0; i < grain.length; i++) grain[i] = 0.93 + rng.uniform() * 0.07;
+
+            const provinces = seeds.map((s, i) => ({ ...s, cx: area[i] ? sumX[i] / area[i] : s.x, cy: area[i] ? sumY[i] / area[i] : s.y, area: area[i], neighbors: [...neighbors[i]] }));
+            mapGeo = { W, H, grid, grain, provinces, kyoto: index(MAP_KYOTO) };
+            return mapGeo;
+        }
+
+        // Replays the pot cycle: founding split, then one step per week of games (and one per title)
+        function buildMapHistory() {
+            const geo = buildMapGeo();
+            const P = geo.provinces;
+            const teams = [...lastLeaderboard].map(t => t.userId).sort();
+            if (!teams.length) return null;
+            const clan = {};
+            teams.forEach((id, i) => { clan[id] = i; });
+            const dist = (a, b) => Math.hypot(P[a].cx - P[b].cx, P[a].cy - P[b].cy);
+            const owner = new Int16Array(P.length).fill(-1);
+
+            // Capitals spread as far apart as possible (never Kyōto or a tiny island), then grow outward evenly
+            const eligible = P.map((p, i) => i).filter(i => i !== geo.kyoto && P[i].island <= 4);
+            const avgX = P.reduce((s, p) => s + p.cx, 0) / P.length, avgY = P.reduce((s, p) => s + p.cy, 0) / P.length;
+            const capitals = [eligible.reduce((a, b) => (Math.hypot(P[b].cx - avgX, P[b].cy - avgY) > Math.hypot(P[a].cx - avgX, P[a].cy - avgY) ? b : a))];
+            while (capitals.length < Math.min(teams.length, eligible.length)) {
+                capitals.push(eligible.filter(i => !capitals.includes(i)).reduce((a, b) => (Math.min(...capitals.map(c => dist(b, c))) > Math.min(...capitals.map(c => dist(a, c))) ? b : a)));
+            }
+            const per = Math.floor(P.length / teams.length);
+            const held = teams.map(() => 0);
+            capitals.forEach((c, i) => { owner[c] = i; held[i] = 1; });
+            let grew = true;
+            while (grew) {
+                grew = false;
+                for (let i = 0; i < capitals.length; i++) {
+                    if (held[i] >= per) continue;
+                    const mine = P.map((p, k) => k).filter(k => owner[k] === i);
+                    const border = [...new Set(mine.flatMap(k => P[k].neighbors))].filter(k => owner[k] === -1);
+                    const pool = border.length ? border : P.map((p, k) => k).filter(k => owner[k] === -1);
+                    if (!pool.length) continue;
+                    const pick = pool.reduce((a, b) => (dist(b, capitals[i]) < dist(a, capitals[i]) ? b : a));
+                    owner[pick] = i; held[i]++; grew = true;
+                }
+            }
+
+            const steps = [{ label: 'The founding', season: null, week: null, owner: Int16Array.from(owner), events: [] }];
+            const history = P.map(() => []);
+            const centroidOf = (who, own) => {
+                const mine = P.map((p, k) => k).filter(k => own[k] === who);
+                if (!mine.length) return null;
+                return [mine.reduce((s, k) => s + P[k].cx * P[k].area, 0) / mine.reduce((s, k) => s + P[k].area, 0), mine.reduce((s, k) => s + P[k].cy * P[k].area, 0) / mine.reduce((s, k) => s + P[k].area, 0)];
+            };
+            const take = (win, lose, own) => {
+                let theirs = P.map((p, k) => k).filter(k => own[k] === lose);
+                if (!theirs.length) return null;
+                if (theirs.length > 1) theirs = theirs.filter(k => k !== capitals[lose]); // the capital falls last
+                const border = theirs.filter(k => P[k].neighbors.some(n => own[n] === win));
+                const pool = border.length ? border : theirs;
+                const [tx, ty] = centroidOf(win, own) || [P[capitals[win]].cx, P[capitals[win]].cy];
+                return pool.reduce((a, b) => (Math.hypot(P[b].cx - tx, P[b].cy - ty) < Math.hypot(P[a].cx - tx, P[a].cy - ty) ? b : a));
+            };
+
+            const entries = leagueArchive.filter(e => !currentCycle || (e.season >= currentCycle.start && e.season <= currentCycle.end));
+            entries.forEach(entry => {
+                const games = seasonGames(entry, { regularOnly: true });
+                const weeks = [...new Set(games.map(g => g.week))].sort((a, b) => a - b);
+                weeks.forEach(week => {
+                    const own = Int16Array.from(steps[steps.length - 1].owner);
+                    const events = [];
+                    games.filter(g => g.week === week).forEach(g => {
+                        if (g.a.points === g.b.points) return;
+                        const [w, l] = g.a.points > g.b.points ? [g.a, g.b] : [g.b, g.a];
+                        if (!(w.userId in clan) || !(l.userId in clan)) return;
+                        const k = take(clan[w.userId], clan[l.userId], own);
+                        if (k == null) return;
+                        own[k] = clan[w.userId];
+                        const event = { province: k, from: l.userId, to: w.userId, season: entry.season, week, score: `${w.points.toFixed(1)}–${l.points.toFixed(1)}`, fell: k === capitals[clan[l.userId]] };
+                        events.push(event); history[k].push(event);
+                    });
+                    steps.push({ label: `${entry.season} · Week ${week}`, season: entry.season, week, owner: own, events });
+                });
+                // The champion seizes Kyōto
+                const champ = entry.league.status === 'complete' ? seasonAwards(entry).awards.find(a => a.key === 'champion')?.userId : null;
+                if (champ && champ in clan) {
+                    const own = Int16Array.from(steps[steps.length - 1].owner);
+                    const from = own[geo.kyoto];
+                    const events = [];
+                    if (from !== clan[champ]) {
+                        own[geo.kyoto] = clan[champ];
+                        const event = { province: geo.kyoto, from: from >= 0 ? teams[from] : null, to: champ, season: entry.season, week: null, title: true };
+                        events.push(event); history[geo.kyoto].push(event);
+                    }
+                    steps.push({ label: `${entry.season} champion`, season: entry.season, week: null, owner: own, events, champion: champ });
+                }
+            });
+            return { teams, clan, capitals, steps, history, colors: teams.map((id, i) => CLAN_COLORS[i] || `hsl(${(i * 47) % 360} 35% 45%)`) };
+        }
+
+        function hexToRgb(hex) {
+            if (hex.startsWith('hsl')) {
+                const probe = document.createElement('canvas').getContext('2d');
+                probe.fillStyle = hex; hex = probe.fillStyle;
+            }
+            const n = parseInt(hex.slice(1), 16);
+            return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+        }
+
+        // Largest connected territory per clan (where its banner goes)
+        function clanHeartlands(own) {
+            const P = mapGeo.provinces;
+            const seen = new Set();
+            const best = {};
+            P.forEach((p, k) => {
+                if (own[k] < 0 || seen.has(k)) return;
+                const group = [];
+                const stack = [k];
+                seen.add(k);
+                while (stack.length) {
+                    const cur = stack.pop();
+                    group.push(cur);
+                    P[cur].neighbors.forEach(n => { if (!seen.has(n) && own[n] === own[k] && P[n].island === P[cur].island) { seen.add(n); stack.push(n); } });
+                }
+                const areaSum = group.reduce((s, g) => s + P[g].area, 0);
+                if (!best[own[k]] || areaSum > best[own[k]].area) {
+                    best[own[k]] = { area: areaSum, x: group.reduce((s, g) => s + P[g].cx * P[g].area, 0) / areaSum, y: group.reduce((s, g) => s + P[g].cy * P[g].area, 0) / areaSum };
+                }
+            });
+            return best;
+        }
+
+        // Paints one step of the map onto a canvas (scale 1 = 720 wide)
+        async function paintMap(canvas, stepIndex, { selected = null, scale = 1, banners = true } = {}) {
+            const geo = buildMapGeo();
+            const { W, H, grid, grain, provinces: P } = geo;
+            const step = mapHistory.steps[stepIndex];
+            const own = step.owner;
+            const fresh = new Set(step.events.map(e => e.province));
+            const colors = mapHistory.colors.map(hexToRgb);
+            const neutral = [217, 204, 176];
+
+            const base = document.createElement('canvas');
+            base.width = W; base.height = H;
+            const bctx = base.getContext('2d');
+            const img = bctx.createImageData(W, H);
+            const d = img.data;
+            for (let y = 0; y < H; y++) {
+                for (let x = 0; x < W; x++) {
+                    const i = y * W + x;
+                    const k = grid[i];
+                    if (k < 0) continue;
+                    const o = i * 4;
+                    const who = own[k];
+                    let [r, g, b] = who >= 0 ? colors[who] : neutral;
+                    let shade = grain[i];
+                    // Province lines (thin) and clan borders (dark)
+                    const right = x + 1 < W ? grid[i + 1] : -1, down = y + 1 < H ? grid[i + W] : -1, left = x > 0 ? grid[i - 1] : -1, up = y > 0 ? grid[i - W] : -1;
+                    const edge = [right, down, left, up].find(n => n >= 0 && n !== k);
+                    if (edge !== undefined) shade *= own[edge] === who ? 0.82 : 0.45;
+                    if (fresh.has(k) && ((x + y) % 9 < 3)) shade *= 0.78;          // freshly taken: hatched
+                    if (k === selected) { r = r + (255 - r) * 0.35; g = g + (255 - g) * 0.35; b = b + (255 - b) * 0.35; }
+                    d[o] = r * shade; d[o + 1] = g * shade; d[o + 2] = b * shade; d[o + 3] = 255;
+                }
+            }
+            bctx.putImageData(img, 0, 0);
+
+            canvas.width = Math.round(W * scale); canvas.height = Math.round(H * scale);
+            const ctx = canvas.getContext('2d');
+            // Sea: washi with faint waves
+            ctx.fillStyle = '#e9dfc8'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = 'rgba(47, 74, 109, 0.09)'; ctx.lineWidth = 1.2 * scale;
+            for (let y = 18; y < H; y += 26) {
+                for (let x = (y / 26) % 2 ? 0 : 20; x < W; x += 40) {
+                    ctx.beginPath(); ctx.arc(x * scale, y * scale, 10 * scale, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+                }
+            }
+            // Shadow, then the painted provinces, then a crisp coastline
+            ctx.save();
+            ctx.shadowColor = 'rgba(29, 26, 23, 0.25)'; ctx.shadowBlur = 10 * scale; ctx.shadowOffsetY = 3 * scale;
+            ctx.fillStyle = '#d9ccb0';
+            [...Object.keys(MAP_ISLANDS), ...Object.keys(MAP_ISLETS)].forEach(id => { islandPath(ctx, Number(id), scale); ctx.fill(); });
+            ctx.restore();
+            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(base, 0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = 'rgba(29, 26, 23, 0.75)'; ctx.lineWidth = 1.6 * scale;
+            [...Object.keys(MAP_ISLANDS), ...Object.keys(MAP_ISLETS)].forEach(id => { islandPath(ctx, Number(id), scale); ctx.stroke(); });
+
+            // Kyōto: the shōgun's seat
+            const kyoto = P[geo.kyoto];
+            ctx.fillStyle = CARD.kin; ctx.strokeStyle = CARD.sumi; ctx.lineWidth = 2 * scale;
+            ctx.beginPath(); ctx.arc(kyoto.cx * scale, kyoto.cy * scale, 9 * scale, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = CARD.sumi; ctx.font = `${Math.round(11 * scale)}px ${CARD.brush}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('京', kyoto.cx * scale, kyoto.cy * scale + 0.5 * scale);
+
+            // Clan banners: team picture on the heart of each territory
+            if (banners) {
+                const hearts = clanHeartlands(own);
+                await Promise.all(Object.entries(hearts).map(async ([who, h]) => {
+                    const id = mapHistory.teams[who];
+                    const size = 30 * scale;
+                    await drawAvatar(ctx, teamInfo(id).avatar, h.x * scale - size / 2, h.y * scale - size / 2, size, mapHistory.colors[who]);
+                }));
+            }
+
+            // Cartouche in the empty sea
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = CARD.sumi; ctx.font = `${Math.round(40 * scale)}px ${CARD.brush}`;
+            ctx.fillText('大日本', 26 * scale, 64 * scale);
+            ctx.font = `700 ${Math.round(13 * scale)}px ${CARD.body}`; ctx.fillStyle = CARD.shu;
+            if ('letterSpacing' in ctx) ctx.letterSpacing = `${3 * scale}px`;
+            ctx.fillText(step.label.toUpperCase(), 28 * scale, 88 * scale);
+            if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+            return canvas;
+        }
+
+        function mapCounts(stepIndex) {
+            const own = mapHistory.steps[stepIndex].owner;
+            const counts = mapHistory.teams.map(() => 0);
+            own.forEach(o => { if (o >= 0) counts[o]++; });
+            return counts;
+        }
+
+        function renderShogunateMap() {
+            const section = document.getElementById('mapSection');
+            const content = document.getElementById('mapContent');
+            if (!section || !content) return;
+            try {
+                mapHistory = buildMapHistory();
+            } catch (error) {
+                console.error('Map error:', error);
+                mapHistory = null;
+            }
+            if (!mapHistory) { section.hidden = true; return; }
+            section.hidden = false;
+            mapStep = mapHistory.steps.length - 1;
+            mapSelected = null;
+            const last = mapHistory.steps.length - 1;
+            content.innerHTML = `
+                <p class="section-note">Every clan started this pot with an equal share of Japan. Each win takes a province from the team you beat, and each season's champion seizes Kyōto (京). Tap a province for its story.</p>
+                <div class="map-layout">
+                    <div class="map-frame">
+                        <canvas id="shogunMap" aria-label="Map of Japan colored by which team holds each province"></canvas>
+                        <div class="map-hover" id="mapHover" hidden></div>
+                        <div class="map-controls">
+                            <button type="button" class="map-play" id="mapPlay" onclick="toggleMapReplay()" aria-label="Replay the conquest">▶</button>
+                            <input type="range" id="mapSlider" min="0" max="${last}" value="${last}" oninput="setMapStep(Number(this.value))" aria-label="Week">
+                            <span class="map-step-label" id="mapStepLabel"></span>
+                        </div>
+                    </div>
+                    <div class="map-side">
+                        <div id="mapProvince" class="map-province"></div>
+                        <h3 class="path-subhead">Clans</h3>
+                        <ol class="map-clans" id="mapClans"></ol>
+                        <h3 class="path-subhead" id="mapEventsTitle">Conquests</h3>
+                        <ul class="map-events" id="mapEvents"></ul>
+                    </div>
+                </div>
+                <div class="share-row">${shareButton('map')}</div>
+            `;
+            const canvas = document.getElementById('shogunMap');
+            const pick = event => {
+                const rect = canvas.getBoundingClientRect();
+                const x = Math.floor((event.clientX - rect.left) / rect.width * MAP_W), y = Math.floor((event.clientY - rect.top) / rect.height * MAP_H);
+                return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H ? mapGeo.grid[y * MAP_W + x] : -1;
+            };
+            canvas.addEventListener('click', event => {
+                const k = pick(event);
+                mapSelected = k >= 0 && k !== mapSelected ? k : null;
+                drawMapStep();
+            });
+            canvas.addEventListener('mousemove', event => {
+                const k = pick(event);
+                const hover = document.getElementById('mapHover');
+                canvas.style.cursor = k >= 0 ? 'pointer' : 'default';
+                if (k < 0) { hover.hidden = true; return; }
+                const who = mapHistory.steps[mapStep].owner[k];
+                hover.hidden = false;
+                hover.textContent = `${mapGeo.provinces[k].name} · ${who >= 0 ? teamInfo(mapHistory.teams[who]).name : 'Unclaimed'}`;
+            });
+            canvas.addEventListener('mouseleave', () => { document.getElementById('mapHover').hidden = true; });
+            drawMapStep();
+        }
+
+        function setMapStep(index) {
+            mapStep = index;
+            drawMapStep();
+        }
+
+        function toggleMapReplay() {
+            const button = document.getElementById('mapPlay');
+            if (mapTimer) { clearInterval(mapTimer); mapTimer = null; button.textContent = '▶'; return; }
+            const last = mapHistory.steps.length - 1;
+            if (mapStep >= last) mapStep = 0;
+            button.textContent = '❚❚';
+            drawMapStep();
+            mapTimer = setInterval(() => {
+                if (!document.getElementById('shogunMap') || mapStep >= last) {
+                    clearInterval(mapTimer); mapTimer = null;
+                    const b = document.getElementById('mapPlay');
+                    if (b) b.textContent = '▶';
+                    return;
+                }
+                mapStep++;
+                drawMapStep();
+            }, 700);
+        }
+
+        let mapDrawing = Promise.resolve();
+        function drawMapStep() {
+            const canvas = document.getElementById('shogunMap');
+            if (!canvas || !mapHistory) return;
+            const stepIndex = mapStep, selected = mapSelected;
+            mapDrawing = mapDrawing.then(() => paintMap(canvas, stepIndex, { selected })).catch(error => console.error('Map paint error:', error));
+            const step = mapHistory.steps[stepIndex];
+            document.getElementById('mapSlider').value = stepIndex;
+            document.getElementById('mapStepLabel').textContent = step.label;
+
+            const me = JSON.parse(sessionStorage.getItem('sleeperUser') || '{}').user_id;
+            const counts = mapCounts(stepIndex);
+            const before = stepIndex > 0 ? mapCounts(stepIndex - 1) : counts;
+            const order = mapHistory.teams.map((id, i) => i).sort((a, b) => counts[b] - counts[a] || lastLeaderboard.findIndex(t => t.userId === mapHistory.teams[a]) - lastLeaderboard.findIndex(t => t.userId === mapHistory.teams[b]));
+            document.getElementById('mapClans').innerHTML = order.map(i => {
+                const id = mapHistory.teams[i];
+                const diff = counts[i] - before[i];
+                const kyoto = mapHistory.steps[stepIndex].owner[mapGeo.kyoto] === i;
+                return `
+                    <li class="${id === me ? 'is-you' : ''}">
+                        <span class="clan-swatch" style="background:${mapHistory.colors[i]}"></span>
+                        <span class="race-team">${avatarImg(teamInfo(id).avatar)}<span class="race-team-name">${escapeHTML(teamInfo(id).name)}${kyoto ? ' <span class="clan-kyoto" title="Holds Kyōto">京</span>' : ''}</span></span>
+                        <span class="clan-count">${counts[i] || '<em>fallen</em>'}${diff ? ` <span class="odds-change ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '+' : '−'}${Math.abs(diff)}</span>` : ''}</span>
+                    </li>
+                `;
+            }).join('');
+
+            const name = id => escapeHTML(teamInfo(id).name);
+            const P = mapGeo.provinces;
+            const eventText = e => e.title
+                ? `<strong>${name(e.to)}</strong> won the ${e.season} title and seized <strong>Kyōto</strong>${e.from ? ` from ${name(e.from)}` : ''}.`
+                : `<strong>${name(e.to)}</strong> took <strong>${escapeHTML(P[e.province].name)}</strong> from ${name(e.from)} (${e.score})${e.fell ? ', capturing their capital' : ''}.`;
+            document.getElementById('mapEventsTitle').textContent = stepIndex ? `Conquests · ${step.label}` : 'Conquests';
+            document.getElementById('mapEvents').innerHTML = step.events.length
+                ? step.events.map(e => `<li>${eventText(e)}</li>`).join('')
+                : `<li class="map-quiet">${stepIndex ? 'No provinces changed hands.' : 'Every clan holds its starting lands. Press ▶ to watch the war.'}</li>`;
+
+            const box = document.getElementById('mapProvince');
+            if (selected == null) {
+                box.innerHTML = '<p class="map-quiet">Tap any province on the map.</p>';
+            } else {
+                const p = P[selected];
+                const who = step.owner[selected];
+                const past = mapHistory.history[selected].filter(e => mapHistory.steps.findIndex(s => s.events.includes(e)) <= stepIndex);
+                const capitalOf = mapHistory.capitals.indexOf(selected);
+                box.innerHTML = `
+                    <div class="map-province-name">${escapeHTML(p.name)}${selected === mapGeo.kyoto ? ' · Kyōto' : ''}</div>
+                    <div class="map-province-meta">${escapeHTML(p.region)} · ${who >= 0 ? `held by <strong>${name(mapHistory.teams[who])}</strong>` : 'unclaimed'}${capitalOf >= 0 ? ` · capital of ${name(mapHistory.teams[capitalOf])}` : ''}</div>
+                    <ul class="map-province-history">
+                        ${past.length ? [...past].reverse().slice(0, 6).map(e => `<li>${e.title ? `${e.season} title` : `${e.season} Wk ${e.week}`}: ${eventText(e)}</li>`).join('') : `<li>Has never changed hands${capitalOf < 0 && mapHistory.steps[0].owner[selected] >= 0 ? ` since ${name(mapHistory.teams[mapHistory.steps[0].owner[selected]])} founded it` : ''}.</li>`}
+                    </ul>
+                `;
+            }
+        }
+
         // ==================== ROSTER VIEW ====================
         
         function escapeHTML(text) {
@@ -10428,7 +11063,7 @@
         async function cardFonts() {
             await Promise.all([
                 `800 76px ${CARD.display}`, `700 34px ${CARD.display}`, `500 28px ${CARD.body}`, `700 28px ${CARD.body}`, `48px ${CARD.brush}`
-            ].map(font => document.fonts.load(font, '武士道将軍覇討商門 Ag 0123')).concat(document.fonts.ready)).catch(() => {});
+            ].map(font => document.fonts.load(font, '武士道将軍覇討商門大日本京 Ag 0123')).concat(document.fonts.ready)).catch(() => {});
         }
         
         function roundRectPath(ctx, x, y, w, h, r) {
@@ -10692,6 +11327,13 @@
                     });
                     ctx.textAlign = 'left';
                     y += 20;
+                } else if (block.type === 'image') {
+                    const room = box.bottom - y - (block.reserve || 0);
+                    const scale = Math.min(width / block.source.width, room / block.source.height);
+                    const w = block.source.width * scale, h = block.source.height * scale;
+                    ctx.drawImage(block.source, box.left + (width - w) / 2, y, w, h);
+                    ctx.strokeStyle = CARD.sumi; ctx.lineWidth = 3; ctx.strokeRect(box.left + (width - w) / 2, y, w, h);
+                    y += h + 28;
                 } else if (block.type === 'seals') {
                     let x = box.left;
                     block.seals.forEach(s => { drawSeal(ctx, s.kanji, s.tier, x + 50, y + 50, 96); x += 120; });
@@ -10789,6 +11431,20 @@
                     ]
                 };
             }
+            if (type === 'map' && mapHistory && arg instanceof HTMLCanvasElement) {
+                const counts = mapCounts(mapStep);
+                const order = mapHistory.teams.map((id, i) => i).sort((a, b) => counts[b] - counts[a]);
+                return {
+                    eyebrow: `Who rules Japan · ${mapHistory.steps[mapStep].label}`, stamp: '国',
+                    blocks: [
+                        { type: 'image', source: arg, reserve: 150 },
+                        { type: 'lines', lines: [
+                            { text: `${teamInfo(mapHistory.teams[order[0]]).name} rules ${counts[order[0]]} of ${counts.reduce((x, y) => x + y, 0)} provinces`, bold: true },
+                            { text: order.slice(1, 3).map(i => `${teamInfo(mapHistory.teams[i]).name} ${counts[i]}`).join(' · '), color: CARD.soft }
+                        ] }
+                    ]
+                };
+            }
             if (type === 'recap' && lastRecapText) {
                 const entry = leagueArchive[leagueArchive.length - 1];
                 return { eyebrow: `Week ${entry?.lastFinishedWeek || ''} recap`, title: "Mike's Take", stamp: '語', blocks: [{ type: 'text', text: lastRecapText, size: 32 }] };
@@ -10874,6 +11530,7 @@
         // ---------- Share dialog ----------
         
         async function shareCard(type, arg) {
+            if (type === 'map' && mapHistory) arg = await paintMap(document.createElement('canvas'), mapStep, { scale: 1.5 });
             const spec = cardSpec(type, arg);
             if (!spec) { alert('That card isn’t ready yet. Give it a second and try again.'); return; }
             shareState = { spec, size: 'portrait', blob: null };
@@ -10996,6 +11653,7 @@
             [/New Honors$/, 'This Week'],
             [/^Week \d+|Recap$|^This Week/, 'This Week'],
             [/^Badge Hall$/, 'Badge Hall'],
+            [/^Shogunate Map$/, 'Shogunate Map'],
             [/^Dynasty Leaderboard$/, 'Leaderboard'],
             [/^The Road to/, 'Overview'],
             [/^Pot Odds$/, 'Pot Odds'],
