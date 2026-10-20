@@ -9444,7 +9444,7 @@
             if (!week || !games.length) return null;
             const name = id => teamInfo(id).name;
             const pts = n => n.toFixed(1);
-            const recap = { season: entry.season, week, playoffs: games[0].playoffs, games, sections: [] };
+            const recap = { season: entry.season, week, playoffs: games[0].playoffs, games };
 
             // Superlatives
             const sides = games.flatMap(g => [g.a, g.b]);
@@ -9461,31 +9461,41 @@
                 { label: 'Blowout', value: `by ${pts(margin(blow))}`, sub: `${name(winner(blow).userId)} over ${name(loser(blow).userId)}` }
             ];
 
-            // Power rankings
+            // Dynasty leaderboard: points, what this week added (wins and the high score), rank moves, pot odds
+            if (lastLeaderboard.length) {
+                const topScore = Math.max(...sides.map(x => x.points));
+                const gained = {};
+                games.forEach(g => {
+                    if (g.playoffs) return;   // playoff points land when the season ends
+                    [[g.a, g.b], [g.b, g.a]].forEach(([mine, opp]) => {
+                        gained[mine.userId] = (gained[mine.userId] || 0) + (mine.points > opp.points ? SCORING.regularSeasonWin : 0) + (mine.points === topScore ? SCORING.highestWeeklyScore : 0);
+                    });
+                });
+                const before = [...lastLeaderboard].sort((a, b) => (b.points - (gained[b.userId] || 0)) - (a.points - (gained[a.userId] || 0)));
+                const odds = potOddsCache?.now;
+                const fmtPts = n => (Math.round(n * 10) / 10).toLocaleString(undefined, { maximumFractionDigits: 1 });
+                recap.standings = lastLeaderboard.map((t, i) => ({
+                    rank: i + 1,
+                    move: before.findIndex(b => b.userId === t.userId) - i,
+                    userId: t.userId,
+                    name: t.teamName,
+                    avatar: t.avatar,
+                    points: fmtPts(t.points),
+                    gain: gained[t.userId] ? `+${fmtPts(gained[t.userId])}` : '',
+                    odds: odds ? formatOdds(odds[t.userId] || 0) : ''
+                }));
+            }
+            
+            // Around the league: one line each, in order of importance
+            recap.bullets = [];
             if (lastPowerCard && lastPowerCard.week === week && lastPowerCard.rows.length) {
                 const rows = lastPowerCard.rows;
                 const top = rows.find(r => r.rank === 1);
                 const up = rows.filter(r => r.move > 0 && r !== top).sort((a, b) => b.move - a.move)[0];
                 const down = rows.filter(r => r.move < 0).sort((a, b) => a.move - b.move)[0];
-                const lines = [{ text: `#1 ${name(top.userId)}${top.move > 0 ? ` (up ${top.move})` : top.move === 0 ? ' holds the top spot' : ''}`, bold: true }];
-                const moves = [up && `▲${up.move} ${name(up.userId)} to #${up.rank}`, down && `▼${-down.move} ${name(down.userId)} to #${down.rank}`].filter(Boolean);
-                if (moves.length) lines.push({ text: moves.join('   ·   '), color: CARD.soft });
-                recap.sections.push({ title: 'Power rankings', lines });
+                const parts = [`#1 ${name(top.userId)}${top.move > 0 ? ` (▲${top.move})` : ''}`, up && `▲${up.move} ${name(up.userId)}`, down && `▼${-down.move} ${name(down.userId)}`].filter(Boolean);
+                recap.bullets.push({ label: 'Power', text: parts.join(' · ') });
             }
-
-            // Pot odds
-            if (potOddsCache && potOddsCache.week === week && potOddsCache.lastWeek) {
-                const ids = Object.keys(potOddsCache.now);
-                const diff = id => potOddsCache.now[id] - (potOddsCache.lastWeek[id] || 0);
-                const leader = ids.reduce((a, b) => (potOddsCache.now[b] > potOddsCache.now[a] ? b : a));
-                const up = ids.reduce((a, b) => (diff(b) > diff(a) ? b : a)), down = ids.reduce((a, b) => (diff(b) < diff(a) ? b : a));
-                const lines = [{ text: `${name(leader)} favored at ${formatOdds(potOddsCache.now[leader])}`, bold: true }];
-                const moves = [diff(up) >= 0.5 && `▲ ${name(up)} ${formatOdds(potOddsCache.now[up])} (+${diff(up).toFixed(1)})`, diff(down) <= -0.5 && `▼ ${name(down)} ${formatOdds(potOddsCache.now[down])} (${diff(down).toFixed(1)})`].filter(Boolean);
-                if (moves.length) lines.push({ text: moves.join('   ·   '), color: CARD.soft });
-                recap.sections.push({ title: 'Pot odds', lines });
-            }
-
-            // Shogunate Map
             if (mapHistory) {
                 const si = mapHistory.steps.map((s, i) => i).filter(i => mapHistory.steps[i].season === entry.season && mapHistory.steps[i].week === week).pop();
                 if (si) {
@@ -9494,54 +9504,85 @@
                     const ruler = counts.indexOf(Math.max(...counts));
                     const gain = counts.map((c, i) => c - before[i]);
                     const best = gain.indexOf(Math.max(...gain));
-                    const lines = [{ text: `${step.events.length} province${step.events.length === 1 ? '' : 's'} changed hands. ${name(mapHistory.teams[ruler])} rules ${counts[ruler]}.`, bold: true }];
-                    const notes = [];
+                    const notes = [`${step.events.length} province${step.events.length === 1 ? '' : 's'} changed hands`];
                     const uprising = step.events.find(e => e.type === 'uprising');
-                    if (uprising) notes.push(`Rōnin uprising: ${name(uprising.to)} retook ${mapGeo.provinces[uprising.province].name}`);
-                    mapHistory.teams.forEach((id, i) => { if (before[i] > 0 && counts[i] === 0) notes.push(`${name(id)} fell`); });
-                    step.events.filter(e => mapGeo.castles.some(c => c.province === e.province) && e.type !== 'uprising').slice(0, 1)
-                        .forEach(e => notes.push(`${name(e.to)} took ${mapGeo.provinces[e.province].name}`));
-                    if (!notes.length && gain[best] > 0) notes.push(`Biggest land grab: ${name(mapHistory.teams[best])} +${gain[best]}`);
-                    if (notes.length) lines.push({ text: notes.slice(0, 2).join(' · '), color: CARD.soft });
-                    recap.sections.push({ title: 'Shogunate Map', lines });
+                    const fallen = mapHistory.teams.filter((id, i) => before[i] > 0 && counts[i] === 0);
+                    const castle = step.events.find(e => mapGeo.castles.some(c => c.province === e.province) && e.type !== 'uprising');
+                    if (uprising) notes.push(`${name(uprising.to)} retook ${mapGeo.provinces[uprising.province].name} in a Rōnin uprising`);
+                    else if (fallen.length) notes.push(`${name(fallen[0])} fell`);
+                    else if (castle) notes.push(`${name(castle.to)} took ${mapGeo.provinces[castle.province].name}`);
+                    else if (gain[best] > 0) notes.push(`${name(mapHistory.teams[best])} grabbed ${gain[best]}`);
+                    notes.push(`${name(mapHistory.teams[ruler])} hold the most (${counts[ruler]})`);
+                    recap.bullets.push({ label: 'Map', text: notes.join(' · ') });
                 }
             }
-
-            // Bench blunders (from Sliding Doors)
             if (doorsData) {
                 const doors = Object.entries(doorsData.teams).flatMap(([id, t]) => t.doors.filter(d => d.season === entry.season && d.week === week).map(d => ({ id, d })));
                 if (doors.length) {
                     const worst = doors.sort((a, b) => (b.d.best - b.d.actual) - (a.d.best - a.d.actual))[0];
-                    const fix = worst.d.singleSwap ? `Starting ${worst.d.swap.inName} over ${worst.d.swap.outName} would have won it.` : `The best lineup scored ${worst.d.best.toFixed(1)}.`;
-                    recap.sections.push({ title: 'Bench blunder', lines: [{ text: `${name(worst.id)} lost to ${name(worst.d.oppId)} with the win on the bench. ${fix}`, color: CARD.sumi }] });
+                    const last = full => { const parts = full.split(' '); return /^(Jr\.?|Sr\.?|II|III|IV)$/.test(parts[parts.length - 1]) && parts.length > 2 ? parts[parts.length - 2] : parts[parts.length - 1]; };
+                    recap.bullets.push({ label: 'Bench', text: worst.d.singleSwap
+                        ? `${name(worst.id)} lost to ${name(worst.d.oppId)}; ${last(worst.d.swap.inName)} over ${last(worst.d.swap.outName)} wins it.`
+                        : `${name(worst.id)} lost to ${name(worst.d.oppId)} with the win on the bench (best lineup: ${worst.d.best.toFixed(1)}).` });
                 }
             }
-
-            // New honors
             if (honors) {
                 const fresh = Object.values(honors.byUser).flatMap(u => u.badges.filter(b => b.season === entry.season && b.week === week).map(b => ({ id: u.userId, badge: BADGE_BY_KEY[b.key] })));
                 if (fresh.length) {
-                    const shown = fresh.sort((a, b) => ['legendary', 'rare', 'common', 'shame'].indexOf(a.badge.tier) - ['legendary', 'rare', 'common', 'shame'].indexOf(b.badge.tier)).slice(0, 3);
-                    recap.sections.push({ title: 'New honors', lines: [{ text: shown.map(x => `${name(x.id)}: ${x.badge.name}`).join(' · ') + (fresh.length > shown.length ? ` · +${fresh.length - shown.length} more` : ''), color: CARD.sumi }] });
+                    const order = ['legendary', 'rare', 'common', 'shame'];
+                    const shown = fresh.sort((a, b) => order.indexOf(a.badge.tier) - order.indexOf(b.badge.tier)).slice(0, 2);
+                    recap.bullets.push({ label: 'Honors', text: shown.map(x => `${name(x.id)}: ${x.badge.name}`).join(' · ') + (fresh.length > shown.length ? ` · +${fresh.length - shown.length} more` : '') });
                 }
             }
             return recap;
         }
 
+        // His take on the week, from real results in his own sayings. Fixed per week so it doesn't change on every redraw.
+        function commishBuddyQuote(recap) {
+            const entry = leagueArchive[leagueArchive.length - 1];
+            const games = recap.games;
+            const name = id => teamInfo(id).name;
+            const sides = games.flatMap(g => [g.a, g.b]);
+            const high = sides.reduce((a, b) => (b.points > a.points ? b : a)), low = sides.reduce((a, b) => (b.points < a.points ? b : a));
+            const margin = g => Math.abs(g.a.points - g.b.points);
+            const win = g => (g.a.points >= g.b.points ? g.a : g.b), lose = g => (g.a.points >= g.b.points ? g.b : g.a);
+            const blow = games.reduce((a, b) => (margin(b) > margin(a) ? b : a)), close = games.reduce((a, b) => (margin(b) < margin(a) ? b : a));
+            const lines = [
+                `${name(win(blow).userId)} beat ${name(lose(blow).userId)} by ${margin(blow).toFixed(1)}. If you throw water in the air, it comes back to hit you in the face.`,
+                `${name(high.userId)} dropped ${high.points.toFixed(1)}. Somebody's cracking a cold Bud Light tonight.`,
+                `${name(low.userId)} put up ${low.points.toFixed(1)}. Sunglasses stay on so nobody sees the tears.`,
+                `${name(win(close).userId)} by ${margin(close).toFixed(2)}? Lotta politics. Lotta politics.`
+            ];
+            const doors = doorsData ? Object.entries(doorsData.teams).flatMap(([id, t]) => t.doors.filter(d => d.season === recap.season && d.week === recap.week).map(d => ({ id, d }))) : [];
+            if (doors.length) {
+                const { id, d } = doors[0];
+                lines.push(d.singleSwap
+                    ? `${name(id)} benched ${d.swap.inName} and lost. That's The Sound of Settling, my friend.`
+                    : `${name(id)} left a win on the bench. That's The Sound of Settling, my friend.`);
+            }
+            const uprising = mapHistory?.steps.find(st => st.season === recap.season && st.week === recap.week)?.events.find(e => e.type === 'uprising');
+            if (uprising) lines.push(`${name(uprising.to)} came back from the dead. That's Soul Meets Body right there.`);
+            if (recap.standings?.[0]) lines.push(`${recap.standings[0].name} still on top of the pot race. Sunglasses on, Bud Light open. Lotta politics.`);
+            return lines[(recap.season * 7 + recap.week * 13 + (entry?.league.league_id || '').length) % lines.length];
+        }
+        
         function commishSpec() {
             const recap = buildCommishRecap();
             if (!recap) return null;
             const note = commishNote();
             const blocks = [];
             if (note) blocks.push({ type: 'text', text: `“${note}” — the Commissioner`, size: 26 });
-            blocks.push({ type: 'heading', text: recap.playoffs ? 'Playoffs' : 'Scoreboard' });
-            blocks.push({ type: 'scoreboard', games: recap.games.map(g => ({ sides: [g.a, g.b].map((s, i, pair) => ({ name: teamInfo(s.userId).name, avatar: teamInfo(s.userId).avatar, score: s.points.toFixed(1), won: s.points > pair[1 - i].points })) })) });
+            if (recap.standings) {
+                blocks.push({ type: 'heading', text: 'Dynasty leaderboard' });
+                blocks.push({ type: 'standings', rows: recap.standings });
+            }
+            blocks.push({ type: 'heading', text: recap.playoffs ? 'Playoff week' : 'The week' });
             blocks.push({ type: 'tiles', tiles: recap.tiles });
-            recap.sections.forEach(sec => {
-                blocks.push({ type: 'heading', text: sec.title });
-                blocks.push({ type: 'lines', compact: true, lines: sec.lines });
-            });
-            return { eyebrow: `Commissioner's Recap · ${recap.season}`, title: `Week ${recap.week}`, stamp: '令', sizes: ['story'], blocks };
+            if (recap.bullets.length) {
+                blocks.push({ type: 'heading', text: 'Around the league' });
+                blocks.push({ type: 'bullets', items: recap.bullets });
+            }
+            return { eyebrow: `Commissioner's Recap · ${recap.season}`, title: `Week ${recap.week}`, stamp: '令', sizes: ['story'], buddy: commishBuddyQuote(recap), blocks };
         }
 
         function renderCommishRecap() {
@@ -11621,6 +11662,28 @@
             ctx.fillText(kanji, cx, cy + size * 0.03);
         }
         
+        // The Value Changes samurai at the bottom of a card with a speech bubble (takes that space away from the blocks)
+        async function drawCardBuddy(ctx, box, quote) {
+            const img = await cardImage('assets/value-buddy.png');
+            const h = 172, w = Math.round(h * 348 / 520);
+            const floor = box.bottom + 6;
+            box.bottom -= h + 18;
+            if (img) ctx.drawImage(img, box.left - 6, floor - h, w, h);
+            const bx = box.left + w + 22, bw = box.right - bx;
+            ctx.font = `500 25px ${CARD.body}`;
+            const lines = wrapLines(ctx, quote, bw - 44).slice(0, 4);
+            const bh = lines.length * 34 + 34;
+            const by = Math.max(floor - h, floor - h / 2 - bh / 2 - 20);
+            ctx.fillStyle = CARD.paper; ctx.strokeStyle = CARD.sumi; ctx.lineWidth = 3;
+            roundRectPath(ctx, bx, by, bw, bh, 18); ctx.fill(); ctx.stroke();
+            // tail toward his head
+            const ty = Math.min(by + bh - 22, floor - h + 60);
+            ctx.beginPath(); ctx.moveTo(bx + 2, ty - 14); ctx.lineTo(bx - 20, ty + 4); ctx.lineTo(bx + 2, ty + 12); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(bx, ty - 14); ctx.lineTo(bx - 20, ty + 4); ctx.lineTo(bx, ty + 12); ctx.stroke();
+            ctx.fillStyle = CARD.sumi; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            lines.forEach((line, i) => ctx.fillText(line, bx + 22, by + 42 + i * 34));
+        }
+        
         // Draw one card from a spec: { eyebrow, title, stamp, blocks: [...] }
         async function renderCard(spec, size) {
             await cardFonts();
@@ -11629,6 +11692,7 @@
             canvas.width = W; canvas.height = H;
             const ctx = canvas.getContext('2d');
             const box = drawCardFrame(ctx, W, H, spec.stamp);
+            if (spec.buddy) await drawCardBuddy(ctx, box, spec.buddy);
             let y = box.top;
             const width = box.right - box.left;
             ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
@@ -11775,6 +11839,53 @@
                     ctx.strokeStyle = CARD.line; ctx.lineWidth = 2;
                     ctx.beginPath(); ctx.moveTo(box.left + textW + 20, y + 12); ctx.lineTo(box.right, y + 12); ctx.stroke();
                     y += 34;
+                } else if (block.type === 'bullets') {
+                    const labelW = 112, lineH = 33;
+                    for (const item of block.items) {
+                        ctx.font = `500 24px ${CARD.body}`;
+                        const lines = wrapLines(ctx, item.text, width - labelW);
+                        if (y + lines.length * lineH + 8 > box.bottom) break;   // items are in priority order: stop at the first that doesn't fit
+                        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+                        ctx.font = `700 19px ${CARD.body}`; ctx.fillStyle = CARD.shu;
+                        if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+                        ctx.fillText(item.label.toUpperCase(), box.left, y + 25);
+                        if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+                        ctx.font = `500 24px ${CARD.body}`; ctx.fillStyle = CARD.sumi;
+                        lines.forEach((line, n) => ctx.fillText(line, box.left + labelW, y + 26 + n * lineH));
+                        y += lines.length * lineH + 10;
+                    }
+                    y += 6;
+                } else if (block.type === 'standings') {
+                    const rowH = 38;
+                    const colOdds = box.right, colGain = box.right - 112, colPts = box.right - 205;
+                    ctx.font = `700 17px ${CARD.body}`; ctx.fillStyle = CARD.soft; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+                    if ('letterSpacing' in ctx) ctx.letterSpacing = '2px';
+                    [['POINTS', colPts], ['WEEK', colGain], ['POT ODDS', colOdds]].forEach(([label, x]) => ctx.fillText(label, x, y + 14));
+                    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+                    y += 22;
+                    for (const row of block.rows) {
+                        if (y + rowH > box.bottom) break;
+                        const cy = y + rowH / 2;
+                        ctx.textBaseline = 'middle';
+                        if (row.highlight) { ctx.fillStyle = 'rgba(179, 54, 43, 0.07)'; ctx.fillRect(box.left - 10, y + 2, width + 20, rowH - 4); }
+                        ctx.font = `800 26px ${CARD.display}`; ctx.fillStyle = CARD.sumi; ctx.textAlign = 'right';
+                        ctx.fillText(String(row.rank), box.left + 34, cy);
+                        ctx.font = `700 17px ${CARD.body}`; ctx.textAlign = 'left';
+                        ctx.fillStyle = row.move > 0 ? CARD.matsu : row.move < 0 ? CARD.shu : CARD.line;
+                        ctx.fillText(row.move > 0 ? `▲${row.move}` : row.move < 0 ? `▼${-row.move}` : '–', box.left + 42, cy);
+                        await drawAvatar(ctx, row.avatar, box.left + 84, cy - 16, 32, row.highlight ? CARD.shu : CARD.line);
+                        ctx.font = `${row.rank === 1 ? 700 : 500} 25px ${CARD.body}`; ctx.fillStyle = row.highlight ? CARD.shu : CARD.sumi;
+                        ctx.fillText(fitText(ctx, row.name, colPts - 110 - (box.left + 128)), box.left + 128, cy);
+                        ctx.textAlign = 'right';
+                        ctx.font = `800 27px ${CARD.display}`; ctx.fillStyle = CARD.sumi; ctx.fillText(row.points, colPts, cy);
+                        ctx.font = `700 22px ${CARD.body}`; ctx.fillStyle = row.gain ? CARD.matsu : CARD.line; ctx.fillText(row.gain || '–', colGain, cy);
+                        ctx.font = `700 24px ${CARD.body}`; ctx.fillStyle = CARD.sumi; ctx.fillText(row.odds || '', colOdds, cy);
+                        ctx.strokeStyle = CARD.line; ctx.lineWidth = 1.5; ctx.setLineDash([5, 6]);
+                        ctx.beginPath(); ctx.moveTo(box.left, y + rowH); ctx.lineTo(box.right, y + rowH); ctx.stroke(); ctx.setLineDash([]);
+                        y += rowH;
+                    }
+                    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+                    y += 10;
                 } else if (block.type === 'scoreboard') {
                     const rowH = 46, mid = (box.left + box.right) / 2;
                     for (const game of block.games) {
@@ -11798,7 +11909,7 @@
                     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
                     y += 8;
                 } else if (block.type === 'tiles') {
-                    const gap = 12, tileW = (width - gap) / 2, tileH = 88;
+                    const gap = 10, tileW = (width - gap) / 2, tileH = 78;
                     block.tiles.forEach((t, i) => {
                         const x = box.left + (i % 2) * (tileW + gap), ty = y + Math.floor(i / 2) * (tileH + gap);
                         ctx.fillStyle = CARD.paper; roundRectPath(ctx, x, ty, tileW, tileH, 6); ctx.fill();
@@ -11809,10 +11920,10 @@
                         ctx.fillText(t.label.toUpperCase(), x + 18, ty + 30);
                         if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
                         ctx.font = `800 32px ${CARD.display}`; ctx.fillStyle = CARD.sumi;
-                        ctx.fillText(t.value, x + 18, ty + 68);
+                        ctx.fillText(t.value, x + 18, ty + 62);
                         const valueW = ctx.measureText(t.value).width;
                         ctx.font = `500 22px ${CARD.body}`; ctx.fillStyle = CARD.soft;
-                        ctx.fillText(fitText(ctx, t.sub || '', tileW - valueW - 50), x + 18 + valueW + 14, ty + 67);
+                        ctx.fillText(fitText(ctx, t.sub || '', tileW - valueW - 50), x + 18 + valueW + 14, ty + 61);
                     });
                     y += Math.ceil(block.tiles.length / 2) * (tileH + gap) + 6;
                 } else if (block.type === 'image') {
