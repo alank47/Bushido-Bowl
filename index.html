@@ -2514,6 +2514,46 @@
             margin: 12px 0;
         }
 
+        .share-dialog .share-size[hidden],
+        .share-dialog .share-size .subtab-btn[hidden] {
+            display: none;
+        }
+
+        /* ---------- Commissioner's Recap ---------- */
+        .commish-label {
+            display: block;
+            margin: 10px 0 6px;
+        }
+
+        .commish-note {
+            width: 100%;
+            resize: vertical;
+            font: inherit;
+        }
+
+        .commish-preview {
+            display: flex;
+            justify-content: center;
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--washi-deep);
+            border-radius: 4px;
+        }
+
+        .commish-preview img {
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 10px 30px -12px rgba(29, 26, 23, 0.5);
+        }
+
+        .commish-preview img:not([src]) {
+            display: none;
+        }
+
+        .commish-actions {
+            justify-content: center;
+        }
+
         .share-preview {
             display: flex;
             justify-content: center;
@@ -4238,6 +4278,12 @@
                 <div id="honorsContent"></div>
             </div>
 
+            <!-- Commissioner's Recap: one shareable image of the week -->
+            <div class="stat-section" id="commishSection" hidden>
+                <h2 class="section-title" id="commishTitle">Commissioner's Recap</h2>
+                <div id="commishContent"></div>
+            </div>
+
             <!-- Power rankings (this season's form) -->
             <div class="stat-section" id="powerSection" hidden>
                 <h2 class="section-title" id="powerTitle">Power Rankings</h2>
@@ -4415,6 +4461,7 @@
             <nav class="subtabs share-size" aria-label="Card size">
                 <button type="button" class="subtab-btn active" data-size="portrait" onclick="setShareSize('portrait')">Portrait</button>
                 <button type="button" class="subtab-btn" data-size="square" onclick="setShareSize('square')">Square</button>
+                <button type="button" class="subtab-btn" data-size="story" onclick="setShareSize('story')">Story</button>
             </nav>
             <div class="share-preview"><img id="sharePreview" alt="Preview of the card"></div>
             <p id="shareHint" class="section-note share-hint" hidden>Tip: press and hold the card to save it to Photos or share it.</p>
@@ -5150,7 +5197,8 @@
                 loadMikeRecap(race);
                 leaderboardReady = true;
                 renderPowerRankings();
-                renderShogunateMap();
+                renderShogunateMap().then(renderCommishRecap);
+                renderCommishRecap();
                 loadHonors();
                 if (document.getElementById('warTab')?.classList.contains('active')) loadWarRoom();
                 if (document.getElementById('tradesTab')?.classList.contains('active')) loadTradeReport();
@@ -8514,6 +8562,7 @@
                 const players = await getSleeperPlayers();
                 doorsData = buildSlidingDoors(players);
                 renderSlidingDoors();
+                renderCommishRecap();
             } catch (error) {
                 console.error('Sliding Doors error:', error);
                 el.innerHTML = '<h2 class="section-title">Sliding Doors</h2><div class="error">Couldn’t load lineups. Refresh to try again.</div>';
@@ -9364,6 +9413,183 @@
                     </ul>
                 `;
             }
+        }
+
+        // ==================== COMMISSIONER'S RECAP ====================
+        //
+        // One tall image (phone-story size, made for the group text) of everything that changed in the latest
+        // week: scores, superlatives, power rankings, pot odds, the Shogunate Map, bench blunders and new honors,
+        // plus an optional note from the commissioner.
+
+        let commishTimer = null;
+        let commishUrl = null;
+
+        function commishNoteKey() {
+            const entry = leagueArchive[leagueArchive.length - 1];
+            return `commishNote:${entry?.league.league_id}:${entry?.lastFinishedWeek}`;
+        }
+
+        function commishNote() {
+            const box = document.getElementById('commishNote');
+            if (box) return box.value.trim();
+            try { return (localStorage.getItem(commishNoteKey()) || '').trim(); } catch (e) { return ''; }
+        }
+
+        // Everything the recap says, in plain data (null if there's no finished week yet)
+        function buildCommishRecap() {
+            const entry = leagueArchive[leagueArchive.length - 1];
+            if (!entry) return null;
+            const week = entry.lastFinishedWeek;
+            const games = seasonGames(entry).filter(g => g.week === week);
+            if (!week || !games.length) return null;
+            const name = id => teamInfo(id).name;
+            const pts = n => n.toFixed(1);
+            const recap = { season: entry.season, week, playoffs: games[0].playoffs, games, sections: [] };
+
+            // Superlatives
+            const sides = games.flatMap(g => [g.a, g.b]);
+            const high = sides.reduce((a, b) => (b.points > a.points ? b : a));
+            const low = sides.reduce((a, b) => (b.points < a.points ? b : a));
+            const margin = g => Math.abs(g.a.points - g.b.points);
+            const winner = g => (g.a.points >= g.b.points ? g.a : g.b), loser = g => (g.a.points >= g.b.points ? g.b : g.a);
+            const close = games.reduce((a, b) => (margin(b) < margin(a) ? b : a));
+            const blow = games.reduce((a, b) => (margin(b) > margin(a) ? b : a));
+            recap.tiles = [
+                { label: 'High score', value: pts(high.points), sub: name(high.userId) },
+                { label: 'Low score', value: pts(low.points), sub: name(low.userId) },
+                { label: 'Nail-biter', value: `by ${margin(close).toFixed(2)}`, sub: `${name(winner(close).userId)} over ${name(loser(close).userId)}` },
+                { label: 'Blowout', value: `by ${pts(margin(blow))}`, sub: `${name(winner(blow).userId)} over ${name(loser(blow).userId)}` }
+            ];
+
+            // Power rankings
+            if (lastPowerCard && lastPowerCard.week === week && lastPowerCard.rows.length) {
+                const rows = lastPowerCard.rows;
+                const top = rows.find(r => r.rank === 1);
+                const up = rows.filter(r => r.move > 0 && r !== top).sort((a, b) => b.move - a.move)[0];
+                const down = rows.filter(r => r.move < 0).sort((a, b) => a.move - b.move)[0];
+                const lines = [{ text: `#1 ${name(top.userId)}${top.move > 0 ? ` (up ${top.move})` : top.move === 0 ? ' holds the top spot' : ''}`, bold: true }];
+                const moves = [up && `▲${up.move} ${name(up.userId)} to #${up.rank}`, down && `▼${-down.move} ${name(down.userId)} to #${down.rank}`].filter(Boolean);
+                if (moves.length) lines.push({ text: moves.join('   ·   '), color: CARD.soft });
+                recap.sections.push({ title: 'Power rankings', lines });
+            }
+
+            // Pot odds
+            if (potOddsCache && potOddsCache.week === week && potOddsCache.lastWeek) {
+                const ids = Object.keys(potOddsCache.now);
+                const diff = id => potOddsCache.now[id] - (potOddsCache.lastWeek[id] || 0);
+                const leader = ids.reduce((a, b) => (potOddsCache.now[b] > potOddsCache.now[a] ? b : a));
+                const up = ids.reduce((a, b) => (diff(b) > diff(a) ? b : a)), down = ids.reduce((a, b) => (diff(b) < diff(a) ? b : a));
+                const lines = [{ text: `${name(leader)} favored at ${formatOdds(potOddsCache.now[leader])}`, bold: true }];
+                const moves = [diff(up) >= 0.5 && `▲ ${name(up)} ${formatOdds(potOddsCache.now[up])} (+${diff(up).toFixed(1)})`, diff(down) <= -0.5 && `▼ ${name(down)} ${formatOdds(potOddsCache.now[down])} (${diff(down).toFixed(1)})`].filter(Boolean);
+                if (moves.length) lines.push({ text: moves.join('   ·   '), color: CARD.soft });
+                recap.sections.push({ title: 'Pot odds', lines });
+            }
+
+            // Shogunate Map
+            if (mapHistory) {
+                const si = mapHistory.steps.map((s, i) => i).filter(i => mapHistory.steps[i].season === entry.season && mapHistory.steps[i].week === week).pop();
+                if (si) {
+                    const step = mapHistory.steps[si];
+                    const counts = mapCounts(si), before = mapCounts(si - 1);
+                    const ruler = counts.indexOf(Math.max(...counts));
+                    const gain = counts.map((c, i) => c - before[i]);
+                    const best = gain.indexOf(Math.max(...gain));
+                    const lines = [{ text: `${step.events.length} province${step.events.length === 1 ? '' : 's'} changed hands. ${name(mapHistory.teams[ruler])} rules ${counts[ruler]}.`, bold: true }];
+                    const notes = [];
+                    const uprising = step.events.find(e => e.type === 'uprising');
+                    if (uprising) notes.push(`Rōnin uprising: ${name(uprising.to)} retook ${mapGeo.provinces[uprising.province].name}`);
+                    mapHistory.teams.forEach((id, i) => { if (before[i] > 0 && counts[i] === 0) notes.push(`${name(id)} fell`); });
+                    step.events.filter(e => mapGeo.castles.some(c => c.province === e.province) && e.type !== 'uprising').slice(0, 1)
+                        .forEach(e => notes.push(`${name(e.to)} took ${mapGeo.provinces[e.province].name}`));
+                    if (!notes.length && gain[best] > 0) notes.push(`Biggest land grab: ${name(mapHistory.teams[best])} +${gain[best]}`);
+                    if (notes.length) lines.push({ text: notes.slice(0, 2).join(' · '), color: CARD.soft });
+                    recap.sections.push({ title: 'Shogunate Map', lines });
+                }
+            }
+
+            // Bench blunders (from Sliding Doors)
+            if (doorsData) {
+                const doors = Object.entries(doorsData.teams).flatMap(([id, t]) => t.doors.filter(d => d.season === entry.season && d.week === week).map(d => ({ id, d })));
+                if (doors.length) {
+                    const worst = doors.sort((a, b) => (b.d.best - b.d.actual) - (a.d.best - a.d.actual))[0];
+                    const fix = worst.d.singleSwap ? `Starting ${worst.d.swap.inName} over ${worst.d.swap.outName} would have won it.` : `The best lineup scored ${worst.d.best.toFixed(1)}.`;
+                    recap.sections.push({ title: 'Bench blunder', lines: [{ text: `${name(worst.id)} lost to ${name(worst.d.oppId)} with the win on the bench. ${fix}`, color: CARD.sumi }] });
+                }
+            }
+
+            // New honors
+            if (honors) {
+                const fresh = Object.values(honors.byUser).flatMap(u => u.badges.filter(b => b.season === entry.season && b.week === week).map(b => ({ id: u.userId, badge: BADGE_BY_KEY[b.key] })));
+                if (fresh.length) {
+                    const shown = fresh.sort((a, b) => ['legendary', 'rare', 'common', 'shame'].indexOf(a.badge.tier) - ['legendary', 'rare', 'common', 'shame'].indexOf(b.badge.tier)).slice(0, 3);
+                    recap.sections.push({ title: 'New honors', lines: [{ text: shown.map(x => `${name(x.id)}: ${x.badge.name}`).join(' · ') + (fresh.length > shown.length ? ` · +${fresh.length - shown.length} more` : ''), color: CARD.sumi }] });
+                }
+            }
+            return recap;
+        }
+
+        function commishSpec() {
+            const recap = buildCommishRecap();
+            if (!recap) return null;
+            const note = commishNote();
+            const blocks = [];
+            if (note) blocks.push({ type: 'text', text: `“${note}” — the Commissioner`, size: 26 });
+            blocks.push({ type: 'heading', text: recap.playoffs ? 'Playoffs' : 'Scoreboard' });
+            blocks.push({ type: 'scoreboard', games: recap.games.map(g => ({ sides: [g.a, g.b].map((s, i, pair) => ({ name: teamInfo(s.userId).name, avatar: teamInfo(s.userId).avatar, score: s.points.toFixed(1), won: s.points > pair[1 - i].points })) })) });
+            blocks.push({ type: 'tiles', tiles: recap.tiles });
+            recap.sections.forEach(sec => {
+                blocks.push({ type: 'heading', text: sec.title });
+                blocks.push({ type: 'lines', compact: true, lines: sec.lines });
+            });
+            return { eyebrow: `Commissioner's Recap · ${recap.season}`, title: `Week ${recap.week}`, stamp: '令', sizes: ['story'], blocks };
+        }
+
+        function renderCommishRecap() {
+            const section = document.getElementById('commishSection');
+            const content = document.getElementById('commishContent');
+            if (!section || !content) return;
+            const recap = buildCommishRecap();
+            if (!recap) { section.hidden = true; return; }
+            section.hidden = false;
+            document.getElementById('commishTitle').textContent = `Commissioner's Recap · Week ${recap.week}`;
+            if (!document.getElementById('commishNote')) {
+                let saved = '';
+                try { saved = localStorage.getItem(commishNoteKey()) || ''; } catch (e) { /* storage blocked */ }
+                content.innerHTML = `
+                    <p class="section-note">Everything that changed this week in one image, sized for a phone. Add a note, then tap Share to text it to the league.</p>
+                    <label class="commish-label" for="commishNote">Note from the commissioner (optional)</label>
+                    <textarea id="commishNote" class="commish-note" rows="2" maxlength="220" placeholder="e.g. Trade deadline is Week 11. Pay your dues.">${escapeHTML(saved)}</textarea>
+                    <div class="commish-preview"><img id="commishImage" alt="Commissioner's recap image"><p class="map-quiet" id="commishStatus">Drawing the recap…</p></div>
+                    <div class="share-row commish-actions"><button type="button" class="share-btn" onclick="shareCard('commish')"><span aria-hidden="true">⤴</span> Share recap</button></div>
+                `;
+                document.getElementById('commishNote').addEventListener('input', event => {
+                    try { localStorage.setItem(commishNoteKey(), event.target.value); } catch (e) { /* storage blocked */ }
+                    queueCommishImage(600);
+                });
+            }
+            queueCommishImage(0);
+        }
+
+        // Redraw the preview (debounced: other parts of the page finish loading a few seconds apart)
+        function queueCommishImage(delay = 400) {
+            clearTimeout(commishTimer);
+            commishTimer = setTimeout(async () => {
+                const img = document.getElementById('commishImage');
+                const status = document.getElementById('commishStatus');
+                const spec = commishSpec();
+                if (!img || !spec) return;
+                try {
+                    const canvas = await renderCard(spec, 'story');
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                    if (commishUrl) URL.revokeObjectURL(commishUrl);
+                    commishUrl = URL.createObjectURL(blob);
+                    img.src = commishUrl;
+                    status.hidden = true;
+                } catch (error) {
+                    console.error('Recap image error:', error);
+                    status.textContent = 'Couldn’t draw the recap. Refresh to try again.';
+                }
+            }, delay);
         }
 
         // ==================== ROSTER VIEW ====================
@@ -11049,6 +11275,7 @@
                 if (run !== honorsExtrasRun) return;
                 honors = full;
                 showHonors();
+                renderCommishRecap();
             } catch (error) {
                 console.error('Honors (trades, lineups, drafts) error:', error);
             }
@@ -11272,7 +11499,7 @@
         async function cardFonts() {
             await Promise.all([
                 `800 76px ${CARD.display}`, `700 34px ${CARD.display}`, `500 28px ${CARD.body}`, `700 28px ${CARD.body}`, `48px ${CARD.brush}`
-            ].map(font => document.fonts.load(font, '武士道将軍覇討商門大日本京江坂 Ag 0123')).concat(document.fonts.ready)).catch(() => {});
+            ].map(font => document.fonts.load(font, '武士道将軍覇討商門大日本京江坂令 Ag 0123')).concat(document.fonts.ready)).catch(() => {});
         }
         
         function roundRectPath(ctx, x, y, w, h, r) {
@@ -11397,7 +11624,7 @@
         // Draw one card from a spec: { eyebrow, title, stamp, blocks: [...] }
         async function renderCard(spec, size) {
             await cardFonts();
-            const W = 1080, H = size === 'square' ? 1080 : 1350;
+            const W = 1080, H = size === 'story' ? 1920 : size === 'square' ? 1080 : 1350;
             const canvas = document.createElement('canvas');
             canvas.width = W; canvas.height = H;
             const ctx = canvas.getContext('2d');
@@ -11506,12 +11733,13 @@
                     ctx.textBaseline = 'alphabetic';
                     y += 88;
                 } else if (block.type === 'lines') {
+                    const small = block.compact;
                     for (const line of block.lines) {
-                        ctx.font = line.bold ? `800 34px ${CARD.display}` : `500 30px ${CARD.body}`;
+                        ctx.font = line.bold ? `800 ${small ? 29 : 34}px ${CARD.display}` : `500 ${small ? 26 : 30}px ${CARD.body}`;
                         ctx.fillStyle = line.color || CARD.sumi;
-                        wrapLines(ctx, line.text, width).forEach(l => { y += 46; if (y < box.bottom) ctx.fillText(l, box.left, y); });
+                        wrapLines(ctx, line.text, width).forEach(l => { y += small ? 40 : 46; if (y < box.bottom) ctx.fillText(l, box.left, y); });
                     }
-                    y += 20;
+                    y += small ? 6 : 20;
                 } else if (block.type === 'text') {
                     let fontSize = block.size || 32;
                     let lines;
@@ -11536,6 +11764,57 @@
                     });
                     ctx.textAlign = 'left';
                     y += 20;
+                } else if (block.type === 'heading') {
+                    if (y + 120 > box.bottom) break;   // no room for this section: leave it out rather than strand a heading
+                    y += 22;
+                    ctx.font = `700 24px ${CARD.body}`; ctx.fillStyle = CARD.shu; ctx.textBaseline = 'alphabetic';
+                    if ('letterSpacing' in ctx) ctx.letterSpacing = '5px';
+                    ctx.fillText(block.text.toUpperCase(), box.left, y + 20);
+                    const textW = ctx.measureText(block.text.toUpperCase()).width;
+                    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+                    ctx.strokeStyle = CARD.line; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(box.left + textW + 20, y + 12); ctx.lineTo(box.right, y + 12); ctx.stroke();
+                    y += 34;
+                } else if (block.type === 'scoreboard') {
+                    const rowH = 46, mid = (box.left + box.right) / 2;
+                    for (const game of block.games) {
+                        if (y + rowH > box.bottom) break;
+                        const cy = y + rowH / 2;
+                        ctx.textBaseline = 'middle';
+                        const [a, b] = game.sides;
+                        await drawAvatar(ctx, a.avatar, box.left, cy - 18, 36, a.won ? CARD.shu : CARD.line);
+                        await drawAvatar(ctx, b.avatar, box.right - 36, cy - 18, 36, b.won ? CARD.shu : CARD.line);
+                        ctx.font = `800 30px ${CARD.display}`;
+                        ctx.textAlign = 'right'; ctx.fillStyle = a.won ? CARD.sumi : CARD.soft; ctx.fillText(a.score, mid - 22, cy);
+                        ctx.textAlign = 'left'; ctx.fillStyle = b.won ? CARD.sumi : CARD.soft; ctx.fillText(b.score, mid + 22, cy);
+                        ctx.textAlign = 'center'; ctx.fillStyle = CARD.line; ctx.fillText('–', mid, cy);
+                        const nameW = mid - 22 - 100 - (box.left + 50) - 14;
+                        ctx.font = `${a.won ? 700 : 500} 25px ${CARD.body}`; ctx.fillStyle = a.won ? CARD.sumi : CARD.soft; ctx.textAlign = 'left';
+                        ctx.fillText(fitText(ctx, a.name, nameW), box.left + 50, cy);
+                        ctx.font = `${b.won ? 700 : 500} 25px ${CARD.body}`; ctx.fillStyle = b.won ? CARD.sumi : CARD.soft; ctx.textAlign = 'right';
+                        ctx.fillText(fitText(ctx, b.name, nameW), box.right - 50, cy);
+                        y += rowH;
+                    }
+                    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+                    y += 8;
+                } else if (block.type === 'tiles') {
+                    const gap = 12, tileW = (width - gap) / 2, tileH = 88;
+                    block.tiles.forEach((t, i) => {
+                        const x = box.left + (i % 2) * (tileW + gap), ty = y + Math.floor(i / 2) * (tileH + gap);
+                        ctx.fillStyle = CARD.paper; roundRectPath(ctx, x, ty, tileW, tileH, 6); ctx.fill();
+                        ctx.strokeStyle = CARD.line; ctx.lineWidth = 2; roundRectPath(ctx, x, ty, tileW, tileH, 6); ctx.stroke();
+                        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+                        ctx.font = `700 19px ${CARD.body}`; ctx.fillStyle = CARD.shu;
+                        if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+                        ctx.fillText(t.label.toUpperCase(), x + 18, ty + 30);
+                        if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+                        ctx.font = `800 32px ${CARD.display}`; ctx.fillStyle = CARD.sumi;
+                        ctx.fillText(t.value, x + 18, ty + 68);
+                        const valueW = ctx.measureText(t.value).width;
+                        ctx.font = `500 22px ${CARD.body}`; ctx.fillStyle = CARD.soft;
+                        ctx.fillText(fitText(ctx, t.sub || '', tileW - valueW - 50), x + 18 + valueW + 14, ty + 67);
+                    });
+                    y += Math.ceil(block.tiles.length / 2) * (tileH + gap) + 6;
                 } else if (block.type === 'image') {
                     const room = box.bottom - y - (block.reserve || 0);
                     const scale = Math.min(width / block.source.width, room / block.source.height);
@@ -11654,6 +11933,7 @@
                     ]
                 };
             }
+            if (type === 'commish') return commishSpec();
             if (type === 'recap' && lastRecapText) {
                 const entry = leagueArchive[leagueArchive.length - 1];
                 return { eyebrow: `Week ${entry?.lastFinishedWeek || ''} recap`, title: "Mike's Take", stamp: '語', blocks: [{ type: 'text', text: lastRecapText, size: 32 }] };
@@ -11742,8 +12022,11 @@
             if (type === 'map' && mapHistory) arg = await paintMap(document.createElement('canvas'), mapStep);
             const spec = cardSpec(type, arg);
             if (!spec) { alert('That card isn’t ready yet. Give it a second and try again.'); return; }
-            shareState = { spec, size: 'portrait', blob: null };
+            const sizes = spec.sizes || ['portrait', 'square'];
+            shareState = { spec, size: sizes[0], blob: null };
             const dialog = document.getElementById('shareDialog');
+            document.querySelectorAll('#shareDialog .share-size .subtab-btn').forEach(b => { b.hidden = !sizes.includes(b.dataset.size); });
+            document.querySelector('#shareDialog .share-size').hidden = sizes.length < 2;
             // Copying images only works on desktop browsers, so hide it where it can't
             document.getElementById('shareCopyBtn').hidden = !(window.ClipboardItem && navigator.clipboard?.write) || canTouch();
             // Browsers without the share menu (Firefox, most in-app browsers) get press-and-hold plus Download instead
@@ -11754,7 +12037,7 @@
             document.getElementById('shareNowBtn').hidden = !canShareMenu;
             document.getElementById('shareDownloadBtn').classList.toggle('secondary-action', canShareMenu);
             if (!dialog.open) dialog.showModal();
-            document.querySelectorAll('#shareDialog .share-size .subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.size === 'portrait'));
+            document.querySelectorAll('#shareDialog .share-size .subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.size === shareState.size));
             await drawShare();
         }
         
@@ -11859,6 +12142,7 @@
         const SUBTAB_RULES = [
             [/^War Room$/, null],                       // header with the team picker: always visible
             [/Power Rankings$/, 'Power Rankings'],
+            [/^Commissioner's Recap/, "Commissioner's Recap"],
             [/New Honors$/, 'This Week'],
             [/^Week \d+|Recap$|^This Week/, 'This Week'],
             [/^Badge Hall$/, 'Badge Hall'],
